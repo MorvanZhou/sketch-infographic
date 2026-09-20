@@ -18,15 +18,11 @@
 
 ## 安装
 
-这是一份 Agent Skill。把 `skills/sketch-infographic` 拷到你的 skills 目录即可，例如：
-
 ```bash
-git clone git@github.com:MorvanZhou/sketch-infographic.git
-cp -R sketch-infographic/skills/sketch-infographic ~/.claude/skills/
-# 或 Cursor: ~/.cursor/skills/  或项目内 .claude/skills/
+npx skills add morvanzhou/sketch-infographic
 ```
 
-下文把 skill 目录记作 `$SKILL`。
+下文把安装后的 skill 目录记作 `$SKILL`。
 
 ## 快速开始
 

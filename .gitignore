@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Node（skill 本身零依赖，本地试验时仍可能出现）
+node_modules/
+npm-debug.log*
+
+# 渲染产物
+images/
+
+# 环境与密钥
+.env
+.env.*
+*.pem
+
+# 日志与临时文件
+*.log
+tmp/
+temp/
+.cache/
