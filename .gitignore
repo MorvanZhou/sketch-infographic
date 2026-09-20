@@ -13,8 +13,7 @@ Thumbs.db
 node_modules/
 npm-debug.log*
 
-# 渲染产物
-images/
+# examples/images 是 README 引用的 demo 图，需要进仓库，因此这里不屏蔽渲染产物
 
 # 环境与密钥
 .env

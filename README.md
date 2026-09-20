@@ -16,6 +16,38 @@
 
 这套方案用代码描述图：按坐标摆放卡片、箭头、图标和文字，库内部把每条线重绘两遍并加上固定随机抖动，得到白板手绘质感。
 
+![代码画图与截图、AI 生图的对比](examples/images/02-compare.png)
+
+## 效果预览
+
+下面六张图覆盖六种常用图式，全部由 [`examples/figures.mjs`](examples/figures.mjs) 生成，讲的就是这个 skill 自己。想改就改坐标重渲染：
+
+```bash
+cd examples && node render.mjs figures.mjs --png
+```
+
+**横向流程** —— 步骤、链路、生命周期
+
+![横向流程示例](examples/images/01-flow.png)
+
+**纵向分层** —— 系统架构、职责分层
+
+![纵向分层示例](examples/images/03-layers.png)
+
+**并列分工** —— 角色职责划分
+
+![并列分工示例](examples/images/04-roles.png)
+
+**闭环** —— 反馈、迭代、修复回路
+
+![闭环示例](examples/images/05-loop.png)
+
+**时间线** —— 阶段演进、里程碑
+
+![时间线示例](examples/images/06-timeline.png)
+
+左右对比的例子就是本文开头那张图。
+
 ## 安装
 
 ```bash
@@ -118,7 +150,7 @@ export const FIGURES = [['01-my-figure', myFigure]];
 | 中心辐射 | 上下文、依赖来源 |
 | 时间线 | 阶段演进、里程碑 |
 
-`assets/template-figures.mjs` 里已经实现了前四种，照抄改比从空文件写快。
+除中心辐射外，其余六种都能在[效果预览](#效果预览)里看到成图，对应代码在 [`examples/figures.mjs`](examples/figures.mjs)。skill 自带的 `assets/template-figures.mjs` 也实现了其中四种，照抄改比从空文件写快。
 
 完整 API 见 [`skills/sketch-infographic/references/api.md`](skills/sketch-infographic/references/api.md)，排版与避坑见 [`skills/sketch-infographic/references/layout.md`](skills/sketch-infographic/references/layout.md)。Agent 工作流程见 [`skills/sketch-infographic/SKILL.md`](skills/sketch-infographic/SKILL.md)。
 
@@ -142,6 +174,11 @@ export const FIGURES = [['01-my-figure', myFigure]];
 ```
 sketch-infographic/
 ├── README.md
+├── examples/                         README 里那六张图的完整工程
+│   ├── figures.mjs                   六种图式的图形定义
+│   ├── sketch.mjs                    由 init.mjs 复制而来
+│   ├── render.mjs                    由 init.mjs 复制而来
+│   └── images/                       渲染产物（SVG + PNG）
 └── skills/sketch-infographic/
     ├── SKILL.md                      Agent 入口与工作流程
     ├── scripts/
@@ -154,6 +191,8 @@ sketch-infographic/
         ├── api.md                    API、参数、图标清单
         └── layout.md                 坐标排版与重叠避坑
 ```
+
+`examples/` 就是「方式 A」跑出来的结果：`init.mjs` 复制脚本，自己写 `figures.mjs`，再 `node render.mjs figures.mjs --png`。
 
 ## License
 
