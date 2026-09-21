@@ -401,7 +401,7 @@ SVG 里的字体依赖打开者本机是否安装。若图要在不确定环境�
 | 能力 | 需要什么 |
 |------|---------|
 | 生成 SVG | 仅 Node ≥ 18，无任何 npm 依赖 |
-| 生成 PNG | 额外需要本机已装 Chrome / Chromium / Edge / Brave；使用临时 `--user-data-dir`，不干扰日常浏览器会话 |
+| 生成 PNG | 额外需要本机已装 Chrome / Chromium / Edge / Brave。使用临时 profile，截图后通过 DevTools 正常退出，不向浏览器发信号 |
 | 自定义浏览器路径 | `--chrome <path>` 或环境变量 `CHROME_PATH` |
 
 脚本为 ESM（`.mjs`），可直接 `node` 运行，不需要 `package.json`，

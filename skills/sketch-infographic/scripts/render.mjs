@@ -11,8 +11,8 @@
  * buildFn 返回 createSketch() 得到的画布对象。
  *
  * SVG 渲染无 npm 运行时依赖；只有加 --png 时才需要一台本机已装的 Chrome/Chromium/Edge/Brave
- * （直接调用浏览器自带的 --screenshot，不安装 puppeteer / playwright）。
- * PNG 导出会使用临时 --user-data-dir，避免干扰日常浏览器会话。
+ * （通过临时 profile + DevTools 协议截图，不安装 puppeteer / playwright）。
+ * 截图后用 Browser.close 正常退出，避免 macOS 把信号杀进程当成 Chrome 崩溃。
  */
 
 import fs from 'node:fs';
@@ -113,92 +113,182 @@ function findChrome(explicit) {
   return null;
 }
 
-/** 结束 spawn 出的浏览器进程树（含 Helper） */
-function killProcessTree(pid) {
-  if (!pid) return;
-  try {
-    if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
-    } else {
-      process.kill(-pid, 'SIGTERM');
+/**
+ * Chrome 的 --remote-debugging-pipe：fd 3 收命令，fd 4 发消息，JSON 以 NUL 分隔。
+ * 只用于本次截图进程，不占用调试端口。
+ */
+function createCdp(pipeRead, pipeWrite) {
+  let nextId = 1;
+  let pending = Buffer.alloc(0);
+  const waiters = new Map();
+  const listeners = new Set();
+
+  function handleMessage(text) {
+    let msg;
+    try { msg = JSON.parse(text); } catch { return; }
+    if (msg.id != null && waiters.has(msg.id)) {
+      const { resolve, reject } = waiters.get(msg.id);
+      waiters.delete(msg.id);
+      if (msg.error) reject(new Error(msg.error.message || 'DevTools 调用失败'));
+      else resolve(msg.result ?? {});
+      return;
     }
-  } catch {
-    try { process.kill(pid, 'SIGKILL'); } catch { /* 已退出 */ }
+    for (const fn of listeners) fn(msg);
   }
+
+  function failAll(err) {
+    for (const { reject } of waiters.values()) reject(err);
+    waiters.clear();
+  }
+  pipeRead.on('data', (buf) => {
+    pending = Buffer.concat([pending, buf]);
+    let idx = pending.indexOf(0);
+    while (idx !== -1) {
+      const text = pending.subarray(0, idx).toString('utf8');
+      pending = pending.subarray(idx + 1);
+      if (text) handleMessage(text);
+      idx = pending.indexOf(0);
+    }
+  });
+  pipeRead.on('error', () => {});
+  pipeRead.on('close', () => failAll(new Error('浏览器管道已关闭')));
+  pipeWrite.on('error', () => {});
+
+  function send(method, params = {}, sessionId) {
+    const id = nextId;
+    nextId += 1;
+    const payload = { id, method, params };
+    if (sessionId) payload.sessionId = sessionId;
+    pipeWrite.write(`${JSON.stringify(payload)}\0`);
+    return new Promise((resolve, reject) => {
+      waiters.set(id, { resolve, reject });
+    });
+  }
+
+  function waitLoadOrCrash(sessionId, timeoutMs) {
+    let cancel = () => {};
+    const promise = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        listeners.delete(onEvent);
+        reject(new Error('等待 Page.loadEventFired 超时'));
+      }, timeoutMs);
+      cancel = () => {
+        clearTimeout(timer);
+        listeners.delete(onEvent);
+      };
+      function onEvent(msg) {
+        if (sessionId && msg.sessionId !== sessionId) return;
+        if (msg.method === 'Page.loadEventFired') {
+          cancel();
+          resolve();
+        } else if (msg.method === 'Inspector.detached') {
+          cancel();
+          reject(new Error(`渲染进程退出：${msg.params?.reason || '未知原因'}`));
+        }
+      }
+      listeners.add(onEvent);
+    });
+    promise.cancel = cancel;
+    return promise;
+  }
+
+  return { send, waitLoadOrCrash };
 }
 
-/** 等 PNG 落盘且体积稳定；Chrome 在隔离 profile 下截图后常不退出 */
-function waitForPng(pngPath, child, timeoutMs = 60_000) {
-  const started = Date.now();
-  let lastSize = -1;
-  let stable = 0;
+function withTimeout(promise, timeoutMs, label) {
   return new Promise((resolve, reject) => {
-    const timer = setInterval(() => {
-      if (Date.now() - started > timeoutMs) {
-        clearInterval(timer);
-        reject(new Error(`PNG 导出超时（${timeoutMs}ms）`));
-        return;
-      }
-      try {
-        if (!fs.existsSync(pngPath)) return;
-        const size = fs.statSync(pngPath).size;
-        if (size <= 0) return;
-        if (size === lastSize) {
-          stable += 1;
-          if (stable >= 2) {
-            clearInterval(timer);
-            resolve();
-          }
-        } else {
-          lastSize = size;
-          stable = 0;
-        }
-      } catch { /* 文件尚在写入 */ }
-    }, 100);
-    child.once('error', (err) => {
-      clearInterval(timer);
+    const timer = setTimeout(() => reject(new Error(`${label} 超时（${timeoutMs}ms）`)), timeoutMs);
+    promise.then((value) => {
+      clearTimeout(timer);
+      resolve(value);
+    }, (err) => {
+      clearTimeout(timer);
       reject(err);
     });
   });
 }
 
-/** 用浏览器自带的 --screenshot 把 SVG 转成 PNG，无需任何 npm 包 */
+/** 用临时 profile + DevTools 截图。正常 Browser.close，不向 Chrome 发信号。 */
 async function svgToPng(chrome, svgPath, pngPath, width, height, scale, noSandbox = false) {
-  // 隔离临时 profile，避免与日常 Chrome 抢 SingletonLock / 触发“重新打开”提示。
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sketch-infographic-chrome-'));
-  try { if (fs.existsSync(pngPath)) fs.unlinkSync(pngPath); } catch { /* 忽略 */ }
   const args = [
     '--headless=new',
     `--user-data-dir=${userDataDir}`,
+    '--remote-debugging-pipe',
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-extensions',
-    '--disable-crash-reporter',
-    '--disable-background-networking',
-    '--disable-gpu',
+    '--disable-breakpad',
     '--hide-scrollbars',
-    '--default-background-color=00000000',
-    `--force-device-scale-factor=${scale}`,
-    `--window-size=${width},${height}`,
-    `--screenshot=${pngPath}`,
-    pathToFileURL(svgPath).href,
+    `--window-size=${Math.round(width)},${Math.round(height)}`,
+    'about:blank',
   ];
-  // 默认不加 --no-sandbox；仅显式开关或 CHROME_NO_SANDBOX=1 时启用。
   if (noSandbox || process.env.CHROME_NO_SANDBOX === '1') {
     args.splice(2, 0, '--no-sandbox');
   }
   const child = spawn(chrome, args, {
-    stdio: 'ignore',
-    // Unix 下建新进程组，便于一次杀掉 Helper 子进程。
-    detached: process.platform !== 'win32',
+    stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'],
   });
-  try {
-    await waitForPng(pngPath, child);
-  } finally {
-    killProcessTree(child.pid);
-    // 给进程一点时间释放 profile 文件锁，再删临时目录。
-    await new Promise((r) => setTimeout(r, 150));
+  child.stderr?.on('data', () => {});
+  const pipeWrite = child.stdio[3];
+  const pipeRead = child.stdio[4];
+  if (!pipeWrite || !pipeRead) {
     fs.rmSync(userDataDir, { recursive: true, force: true });
+    throw new Error('无法建立浏览器 DevTools 管道');
+  }
+  const exited = new Promise((resolve) => {
+    child.once('exit', (code, signal) => resolve({ code, signal }));
+  });
+  const cdp = createCdp(pipeRead, pipeWrite);
+  let loaded = null;
+  try {
+    const created = await withTimeout(
+      cdp.send('Target.createTarget', { url: 'about:blank' }),
+      20_000,
+      '启动浏览器',
+    );
+    const attached = await withTimeout(
+      cdp.send('Target.attachToTarget', { targetId: created.targetId, flatten: true }),
+      10_000,
+      '连接页面',
+    );
+    const sessionId = attached.sessionId;
+    await withTimeout(cdp.send('Page.enable', {}, sessionId), 10_000, '启用页面');
+    await withTimeout(cdp.send('Emulation.setDeviceMetricsOverride', {
+      width: Math.round(width),
+      height: Math.round(height),
+      deviceScaleFactor: scale,
+      mobile: false,
+    }, sessionId), 10_000, '设置画布');
+    const loadedWait = cdp.waitLoadOrCrash(sessionId, 10_000);
+    loaded = loadedWait;
+    const nav = await withTimeout(
+      cdp.send('Page.navigate', { url: pathToFileURL(svgPath).href }, sessionId),
+      10_000,
+      '打开 SVG',
+    );
+    if (nav.errorText) throw new Error(nav.errorText);
+    await loadedWait;
+    const shot = await withTimeout(
+      cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true }, sessionId),
+      15_000,
+      '截图',
+    );
+    if (!shot.data) throw new Error('浏览器没有返回 PNG 数据');
+    fs.writeFileSync(pngPath, Buffer.from(shot.data, 'base64'));
+    await withTimeout(cdp.send('Browser.close'), 5_000, '关闭浏览器').catch(() => {});
+    const result = await withTimeout(exited, 10_000, '等待浏览器退出');
+    if (result.signal) {
+      throw new Error(`浏览器被信号 ${result.signal} 终止`);
+    }
+  } finally {
+    loaded?.cancel?.();
+    if (child.exitCode === null && child.signalCode == null) {
+      await withTimeout(cdp.send('Browser.close'), 3_000, '关闭浏览器').catch(() => {});
+      await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 2000))]);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch { /* 进程尚未松开文件时保留临时目录 */ }
   }
 }
 
