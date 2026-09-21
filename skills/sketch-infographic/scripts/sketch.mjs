@@ -1676,12 +1676,38 @@ export function createSketch(
       api.text(cx - 70, cy + s * 0.56, 140, label, { size: o.size ?? 17, align: 'center', color: o.color ?? o.stroke });
     },
 
-    /** 图题：标题（可选副标题）；默认不加编号。仅文章需要「图 N」交叉引用时才传 label */
+    /**
+     * 图题：标题（可选副标题）；默认不加编号。仅文章需要「图 N」交叉引用时才传 label。
+     * 标题/副标题按实际换行抬高副标题与正文起点，长英文不会叠字。
+     * 请用返回的 y 排正文；不要假设固定 96 / 128。
+     */
     header({ label, title, sub }) {
+      const titleX = label ? 150 : 48;
+      const titleW = width - 200;
+      const titleY = 30;
+      const titleSize = 31;
+      const titleLh = 1.45;
       if (label) api.card(48, 30, 84, 38, label, { size: 20, r: 10, weight: 700 });
-      api.text(label ? 150 : 48, 30, width - 200, title, { size: 31, weight: 700 });
-      if (sub) api.text(label ? 150 : 48, 76, width - 200, sub, { size: 17, color: GRAY, lh: 1.5 });
-      return sub ? 128 : 96;
+
+      const titleLines = wrapText(String(title ?? ''), titleSize, titleW);
+      api.text(titleX, titleY, titleW, title, {
+        size: titleSize, weight: 700, lh: titleLh, fit: false,
+      });
+      // 单行时 titleBottom≈75，与旧版 sub y=76 对齐
+      let cursor = titleY + titleLines.length * titleSize * titleLh;
+
+      if (sub) {
+        const subSize = 17;
+        const subLh = 1.5;
+        const subY = cursor + 2;
+        const subLines = wrapText(String(sub), subSize, titleW);
+        api.text(titleX, subY, titleW, sub, {
+          size: subSize, color: GRAY, lh: subLh, fit: false,
+        });
+        cursor = subY + subLines.length * subSize * subLh;
+        return Math.ceil(cursor + 26); // 单行+sub ≈ 128
+      }
+      return Math.ceil(cursor + 21); // 单行无 sub ≈ 96
     },
 
     /** 底部图注（可选；默认不要用，仅用户明确要求图注时） */

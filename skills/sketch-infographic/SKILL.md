@@ -130,6 +130,7 @@ import { createSketch, R, INK, GREEN, VIOLET, GRAY } from './sketch.mjs';
 function overview() {
   const s = createSketch({ width: 1200, height: 675 });
   s.header({ title: '标题直接表达结论', sub: '副标题补充范围或条件' });
+  // 长英文标题会自动折行并下移正文起点；用返回的 y 排内容，勿写死 96/128
   const input = R(90, 250, 180, 70, 'input');
   const core = R(420, 220, 300, 130, 'core');
   s.card(input.x, input.y, input.w, input.h, '输入', { stroke: GREEN });
