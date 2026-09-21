@@ -1531,7 +1531,7 @@ export function createSketch(
       return sub ? 128 : 96;
     },
 
-    /** 底部图注 */
+    /** 底部图注（可选；默认不要用，仅用户明确要求图注时） */
     footer(y, content) {
       api.line(48, y, width - 48, y, { sw: 1.4, roughness: 2.2, stroke: GRAY });
       api.text(48, y + 16, width - 96, content, { size: 18, lh: 1.6 });

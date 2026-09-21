@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
-<rect width="1200" height="760" fill="#FFFDF8"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="730" viewBox="0 0 1200 730">
+<rect width="1200" height="730" fill="#FFFDF8"/>
 <text font-family="'Hanzipen SC','HanziPen SC','Hannotate SC','Xingkai SC','LXGW WenKai','LXGW WenKai Screen','Zhi Mang Xing','Kaiti SC','STKaiti','KaiTi','Kaiti TC','Bradley Hand','Segoe Print','Comic Sans MS','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif" font-size="31" font-weight="700" fill="#3A342D" text-anchor="start"><tspan x="48" y="65.06">限塑政策如何改写各方行为</tspan></text>
 <text font-family="'Hanzipen SC','HanziPen SC','Hannotate SC','Xingkai SC','LXGW WenKai','LXGW WenKai Screen','Zhi Mang Xing','Kaiti SC','STKaiti','KaiTi','Kaiti TC','Bradley Hand','Segoe Print','Comic Sans MS','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif" font-size="17" font-weight="400" fill="#7E766A" text-anchor="start"><tspan x="48" y="95.89">政府规则 → 商家与供应链调整 → 消费者选择 → 环境影响</tspan></text>
 <path d="M505.49,206.31 Q505.64,202.51 505.64,198.71" fill="none" stroke="#C0483C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -65,7 +65,4 @@
 <path d="M600.29,573.56 Q597.35,568.36 594.61,563.05" fill="none" stroke="#7E766A" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M600.26,574.14 Q602.72,568.72 605.73,563.6" fill="none" stroke="#7E766A" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
 <text font-family="'Hanzipen SC','HanziPen SC','Hannotate SC','Xingkai SC','LXGW WenKai','LXGW WenKai Screen','Zhi Mang Xing','Kaiti SC','STKaiti','KaiTi','Kaiti TC','Bradley Hand','Segoe Print','Comic Sans MS','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif" font-size="14" font-weight="400" fill="#7E766A" text-anchor="middle" stroke="#FFFDF8" stroke-width="5" stroke-linejoin="round" paint-order="stroke"><tspan x="600" y="538.83">材料足迹</tspan></text>
-<path d="M53.49,702.67 Q603.17,701.94 1152.84,697.19" fill="none" stroke="#7E766A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M51.92,695.17 Q599.18,694.72 1146.44,698.37" fill="none" stroke="#7E766A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-<text font-family="'Hanzipen SC','HanziPen SC','Hannotate SC','Xingkai SC','LXGW WenKai','LXGW WenKai Screen','Zhi Mang Xing','Kaiti SC','STKaiti','KaiTi','Kaiti TC','Bradley Hand','Segoe Print','Comic Sans MS','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif" font-size="18" font-weight="400" fill="#3A342D" text-anchor="start"><tspan x="48" y="738.46">因果图要让读者看清：谁改变行为，行为又如何汇到结果。</tspan></text>
 </svg>

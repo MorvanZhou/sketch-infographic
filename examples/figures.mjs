@@ -29,7 +29,7 @@ function stageCard(s, box, title, bullets, icon, color) {
 }
 
 function researchFramework() {
-  const s = createSketch({ width: 1400, height: 920 });
+  const s = createSketch({ width: 1400, height: 850 });
   s.header({
     title: '研究从问题走到结论，中间靠可检验的证据链',
     sub: '设计 → 执行 → 解释；每一步都能被追问“凭什么成立”',
@@ -133,7 +133,6 @@ function researchFramework() {
     size: 13, align: 'center', color: INK,
   });
 
-  s.footer(860, '高密度研究框架：每阶段写清可追问点，结论拆成支持 / 边界 / 下一步。');
   return s;
 }
 
@@ -154,7 +153,7 @@ const CHLOROPLAST_LEAF = [
 ];
 
 function photosynthesisLesson() {
-  const s = createSketch({ width: 1100, height: 1520 });
+  const s = createSketch({ width: 1100, height: 1320 });
   s.header({
     title: '光合作用：把光能变成可储存的化学能',
     sub: '输入 · 场所分舱 · 能量载体 · 产物 · 总反应式',
@@ -348,14 +347,13 @@ function photosynthesisLesson() {
       size: 14, color: INK,
     });
 
-  s.footer(1360, '过程区用分栏留白；叶片只作场所标识，不再与文字叠压。');
   return s;
 }
 
 /* ------------------------------------------ 3. 政策影响路径 */
 
 function policyStakeholders() {
-  const s = createSketch({ width: 1200, height: 760 });
+  const s = createSketch({ width: 1200, height: 730 });
   s.header({
     title: '限塑政策如何改写各方行为',
     sub: '政府规则 → 商家与供应链调整 → 消费者选择 → 环境影响',
@@ -397,14 +395,13 @@ function policyStakeholders() {
     id: 'supply-env', dash: true, stroke: GRAY, label: '材料足迹',
   });
 
-  s.footer(700, '因果图要让读者看清：谁改变行为，行为又如何汇到结果。');
   return s;
 }
 
 /* ------------------------------------------ 4. 系统拓扑 */
 
 function serviceTopology() {
-  const s = createSketch({ width: 1200, height: 720 });
+  const s = createSketch({ width: 1200, height: 590 });
   s.header({
     title: '同步请求贴边走，异步事件走外侧通道',
     sub: '通用拓扑语法：边界、节点、主干连接、回流绕行',
@@ -449,14 +446,13 @@ function serviceTopology() {
     id: 'pay-event', via: 'above', pad: 34, dash: true, stroke: RED, label: '领域事件总线',
   });
 
-  s.footer(600, '复杂系统图先规划走线槽，再摆节点，避免箭头穿框。');
   return s;
 }
 
 /* ------------------------------------------ 5. 左右对比 */
 
 function approachCompare() {
-  const s = createSketch({ width: 1200, height: 640 });
+  const s = createSketch({ width: 1200, height: 590 });
   s.header({
     title: '同一目标，两条路径的关键差别',
     sub: '左右同构，只让差异变色',
@@ -500,14 +496,13 @@ function approachCompare() {
   s.line(600, 190, 600, 510, { stroke: GRAY, dash: true, sw: 1.4 });
   s.lucideIcon('x', 310, 520, 28, { stroke: RED });
   s.lucideIcon('check', 890, 520, 28, { stroke: GREEN });
-  s.footer(560, '对比图的价值是突出差异，不是把两边都写满细节。');
   return s;
 }
 
 /* ------------------------------------------ 6. 时间线旅程 */
 
 function onboardingJourney() {
-  const s = createSketch({ width: 1200, height: 620 });
+  const s = createSketch({ width: 1200, height: 580 });
   s.header({
     title: '新用户七天：从好奇到习惯，或流失',
     sub: '时间轴 + 情绪变化 + 风险点',
@@ -543,7 +538,6 @@ function onboardingJourney() {
     id: 'risk-callout', stroke: RED, dash: true,
   });
 
-  s.footer(540, '旅程图同时交代阶段、情绪和干预点，读者才能决定改什么。');
   return s;
 }
 
@@ -551,7 +545,7 @@ function onboardingJourney() {
 /* ------------------------------------------ 7. 复杂平台架构 */
 
 function platformArchitecture() {
-  const s = createSketch({ width: 1400, height: 980 });
+  const s = createSketch({ width: 1400, height: 950 });
   s.header({
     title: '多租户平台：边缘接入 · 业务域 · 数据面 · 控制与观测',
     sub: '信息密度靠分区和分列；连线只走邻接槽，跨区旁路占用画布外缘',
@@ -692,7 +686,6 @@ function platformArchitecture() {
   s.connect(traces, 's', slo, 'n', { id: 'traces-slo', stroke: GREEN });
   s.connect(alert, 'e', slo, 'w', { id: 'alert-slo', stroke: GREEN, dash: true });
 
-  s.footer(920, '复杂架构先分区再分列：同列只纵向，邻列只横向，跨区旁路走外缘。');
   return s;
 }
 

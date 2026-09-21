@@ -48,7 +48,7 @@ function neuronColumn(s, x, y0, n, gap, d, color, idPrefix) {
 }
 
 function cnnStructure() {
-  const s = createSketch({ width: 1400, height: 820, stroke: { roughness: 1.35, bowing: 1.15 } });
+  const s = createSketch({ width: 1400, height: 700, stroke: { roughness: 1.35, bowing: 1.15 } });
   s.header({
     title: 'CNN：特征图在变窄变厚，全连接再汇成类别',
     sub: '图形化示意体积变换，而不是一排标题卡片',
@@ -219,7 +219,6 @@ function cnnStructure() {
     });
   });
 
-  s.footer(720, '形态优先：叠层块表达张量形状，圆点表达神经元，柱状表达类别得分。');
   return s;
 }
 

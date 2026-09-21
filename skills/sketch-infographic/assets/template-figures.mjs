@@ -12,7 +12,7 @@ import {
 } from '../scripts/sketch.mjs';
 
 function overview() {
-  const s = createSketch({ width: 1200, height: 520 });
+  const s = createSketch({ width: 1200, height: 380 });
   s.header({
     title: '把结论写在标题里',
     sub: '节点用 R，主干用 connect；需要绕行时用 bypass',
@@ -47,7 +47,6 @@ function overview() {
   s.connect(input, 'e', core, 'w', { id: 'in-core', stroke: GRAY });
   s.connect(core, 'e', out, 'w', { id: 'core-out', stroke: GRAY });
 
-  s.footer(460, '种子只示范结构；具体图式请按内容组合原语，或参考 examples。');
   return s;
 }
 
