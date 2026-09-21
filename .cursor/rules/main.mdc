@@ -1,0 +1,14 @@
+---
+description: Keep sketch-infographic universal, portable, and release-ready
+alwaysApply: true
+---
+
+# sketch-infographic
+
+通用开源 Agent Skill：用零 npm 运行时依赖的 Node 脚本，生成可复现、可进 Git 的手绘风 SVG 信息图（可选 PNG）。
+
+- **适配**：按视觉关系设计能力（flow / hierarchy / comparison / time / topology / causality / grouping / pictorial），面向任意领域、语言、受众与媒介；不按行业或当前案例划界。默认不只产出方框流程图——形态、体积、缩放、包含关系可用圆、叠层块、path 等图形化表达。
+- **不适配**：大规模统计图、照片级插画，或用户明确要求其他格式时，换更合适的工具。
+- **扩展**：模板只是例子。无现成图式时先组合通用原语；确需新增时扩可复用的几何 / 布局 / 排版 / 样式 / 数据映射 / 导出 API，不加行业专用 helper。不引入场景白名单；默认值可覆盖。
+- **工程**：`skills/sketch-infographic/scripts/` 为唯一实现源；示例复用、不复制。正常渲染离线、无 npm 运行时依赖；维护工具仅可从固定版本拉取第三方资源并提交生成物与许可信息。跨平台（macOS / Windows / Linux），不提交私有路径、缓存、凭证或机器假设。
+- **发布**：实质渲染改动需过语法 / 语义 / SVG lint 与代表性示例；公开 API 变更同步 `SKILL.md`、`references/`、init 种子与示例。CLI 标识符校验为安全 slug，输出不出界、拒重复，PNG 失败非零退出。
