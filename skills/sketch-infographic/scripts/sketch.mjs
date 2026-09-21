@@ -44,6 +44,20 @@ export const FONT_SANS = [
 export const FONT = FONT_HAND;
 export const DEFAULT_CANVAS_WIDTH = 1200;
 export const DEFAULT_CANVAS_HEIGHT = 675;
+/** 端口默认离边框间隙；过小会与边框笔触/手绘抖动糊成一条线 */
+export const DEFAULT_PORT_GAP = 6;
+/**
+ * 连线相对非目标节点（及过长贴边段）的最小净空。
+ * lint 用负 inset 外扩包围盒检测「擦边重叠」。
+ */
+export const DEFAULT_EDGE_CLEARANCE = 10;
+/**
+ * bypass 在「走廊方向 ∥ 端口边」时，平行长段相对节点外沿的额外退让，
+ * 保证最后一段以短 stub 垂直扎入端口，而不是贴底/顶边横穿。
+ */
+export const DEFAULT_BYPASS_APPROACH = 16;
+/** 起终点允许贴边的最大 stub 长度；更长则按普通障碍做净空检查 */
+export const MAX_PORT_STUB = 32;
 export { LUCIDE_VERSION };
 
 const LEGACY_ICON_ALIASES = Object.freeze({
@@ -529,6 +543,9 @@ function segmentIntersection(a, b, c, d) {
   };
 }
 
+/**
+ * 线段是否进入矩形。inset > 0 收缩（只抓穿心）；inset < 0 外扩（抓擦边净空不足）。
+ */
 function segmentHitsRect(a, b, rect, inset = 2) {
   const r = {
     x: rect.x + inset,
@@ -536,13 +553,63 @@ function segmentHitsRect(a, b, rect, inset = 2) {
     w: Math.max(0, rect.w - inset * 2),
     h: Math.max(0, rect.h - inset * 2),
   };
+  if (r.w <= 0 || r.h <= 0) return false;
   if (pointInRect(a, r) || pointInRect(b, r)) return true;
+  // 中点也查：两端都在外、但线段擦过外扩盒内部时（贴边长段）
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  if (pointInRect(mid, r)) return true;
   const corners = [
     [r.x, r.y], [r.x + r.w, r.y],
     [r.x + r.w, r.y + r.h], [r.x, r.y + r.h],
   ];
   for (let i = 0; i < 4; i += 1) {
     if (segmentIntersection(a, b, corners[i], corners[(i + 1) % 4])) return true;
+  }
+  return false;
+}
+
+/** 去掉连续重复点，避免零长段干扰 stub 判断 */
+function dedupePoints(points) {
+  const out = [];
+  for (const p of points) {
+    const prev = out[out.length - 1];
+    if (!prev || Math.hypot(p[0] - prev[0], p[1] - prev[1]) > GEOM_EPS) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * 线段是否进入外扩/收缩后的矩形，且命中点离 port 超过 portSlack。
+ * 用于起终点：允许短 stub 贴近端口，但禁止沿边长段在远处擦框。
+ */
+function segmentHitsRectAwayFromPort(a, b, rect, inset, port, portSlack) {
+  const r = {
+    x: rect.x + inset,
+    y: rect.y + inset,
+    w: Math.max(0, rect.w - inset * 2),
+    h: Math.max(0, rect.h - inset * 2),
+  };
+  if (r.w <= 0 || r.h <= 0) return false;
+  const samples = 12;
+  let anyInside = false;
+  for (let i = 0; i <= samples; i += 1) {
+    const t = i / samples;
+    const p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    if (!pointInRect(p, r)) continue;
+    anyInside = true;
+    if (Math.hypot(p[0] - port[0], p[1] - port[1]) > portSlack) return true;
+  }
+  if (anyInside) return false;
+  // 两端都在外但穿过矩形边：用边交点再判一次
+  const corners = [
+    [r.x, r.y], [r.x + r.w, r.y],
+    [r.x + r.w, r.y + r.h], [r.x, r.y + r.h],
+  ];
+  for (let i = 0; i < 4; i += 1) {
+    const hit = segmentIntersection(a, b, corners[i], corners[(i + 1) % 4]);
+    if (hit && Math.hypot(hit.at[0] - port[0], hit.at[1] - port[1]) > portSlack) {
+      return true;
+    }
   }
   return false;
 }
@@ -559,7 +626,7 @@ function normSide(side) {
  * 取矩形某边中点外侧的端口坐标，避免箭头扎进框心。
  * side: n / s / e / w（或 top/bottom/left/right）
  */
-export function portOf(box, side, gap = 6) {
+export function portOf(box, side, gap = DEFAULT_PORT_GAP) {
   const { x, y, w, h } = box;
   const cx = x + w / 2;
   const cy = y + h / 2;
@@ -611,10 +678,12 @@ function polylineLabelAnchor(points) {
 }
 
 /** 正交折线路径：贴边出、贴边入，中间只走水平/竖直 */
-function orthoRoute(x1, y1, sideA, x2, y2, sideB) {
+function orthoRoute(x1, y1, sideA, x2, y2, sideB, boxA = null, boxB = null) {
   const sa = normSide(sideA);
   const sb = normSide(sideB);
   const near = (a, b) => Math.abs(a - b) < 8;
+  const clear = DEFAULT_BYPASS_APPROACH;
+  const pierces = (a, b, box) => box && segmentHitsRect(a, b, box, -DEFAULT_EDGE_CLEARANCE);
 
   if ((sa === 'e' && sb === 'w') || (sa === 'w' && sb === 'e')) {
     if (near(y1, y2)) return [[x1, y1], [x2, y2]];
@@ -626,12 +695,34 @@ function orthoRoute(x1, y1, sideA, x2, y2, sideB) {
     const my = (y1 + y2) / 2;
     return [[x1, y1], [x1, my], [x2, my], [x2, y2]];
   }
-  // 一边水平出、一边竖直入：L 形
-  if ((sa === 'e' || sa === 'w') && (sb === 'n' || sb === 's')) {
-    return [[x1, y1], [x2, y1], [x2, y2]];
-  }
+  // 一边竖直出、一边水平入：默认先竖后横；若竖段落进目标框则改走外侧净空
   if ((sa === 'n' || sa === 's') && (sb === 'e' || sb === 'w')) {
-    return [[x1, y1], [x1, y2], [x2, y2]];
+    if (!pierces([x1, y1], [x1, y2], boxB)) {
+      return [[x1, y1], [x1, y2], [x2, y2]];
+    }
+    let yLane;
+    if (boxB && y1 <= boxB.y) yLane = boxB.y - clear;
+    else if (boxB && y1 >= boxB.y + boxB.h) yLane = boxB.y + boxB.h + clear;
+    else yLane = (boxB ? boxB.y + boxB.h : Math.max(y1, y2)) + clear;
+    // 竖直走廊放在端口外侧，最后以短水平 stub 扎入 e/w，避免沿框边长滑
+    const xOut = sb === 'e'
+      ? Math.max(x2, (boxB ? boxB.x + boxB.w : x2) + clear)
+      : Math.min(x2, (boxB ? boxB.x : x2) - clear);
+    return dedupePoints([[x1, y1], [x1, yLane], [xOut, yLane], [xOut, y2], [x2, y2]]);
+  }
+  // 一边水平出、一边竖直入
+  if ((sa === 'e' || sa === 'w') && (sb === 'n' || sb === 's')) {
+    if (!pierces([x1, y1], [x2, y1], boxB)) {
+      return [[x1, y1], [x2, y1], [x2, y2]];
+    }
+    let xLane;
+    if (boxB && x1 <= boxB.x) xLane = boxB.x - clear;
+    else if (boxB && x1 >= boxB.x + boxB.w) xLane = boxB.x + boxB.w + clear;
+    else xLane = (boxB ? boxB.x + boxB.w : Math.max(x1, x2)) + clear;
+    const yOut = sb === 's'
+      ? Math.max(y2, (boxB ? boxB.y + boxB.h : y2) + clear)
+      : Math.min(y2, (boxB ? boxB.y : y2) - clear);
+    return dedupePoints([[x1, y1], [xLane, y1], [xLane, yOut], [x2, yOut], [x2, y2]]);
   }
   // 同侧进出（少见）：先外探再折
   if (sa === sb) {
@@ -645,23 +736,52 @@ function orthoRoute(x1, y1, sideA, x2, y2, sideB) {
   return [[x1, y1], [x2, y1], [x2, y2]];
 }
 
-function bypassRoute(boxA, sideA, boxB, sideB, via, pad) {
-  const [x1, y1] = portOf(boxA, sideA);
-  const [x2, y2] = portOf(boxB, sideB);
+/**
+ * 外侧绕行路径。
+ * 只在终点侧做 approach 退让（平行长段离开节点外沿，再以短 stub 垂直扎入），
+ * 起点不再抬/推一层——否则会在出发端口旁出现「先折一下再走」的直觉外绕弯。
+ */
+function bypassRoute(
+  boxA, sideA, boxB, sideB, via, pad,
+  gap = DEFAULT_PORT_GAP,
+  approach = DEFAULT_BYPASS_APPROACH,
+) {
+  const sa = normSide(sideA);
+  const sb = normSide(sideB);
+  const [x1, y1] = portOf(boxA, sa, gap);
+  const [x2, y2] = portOf(boxB, sb, gap);
+  const clear = Math.max(approach, gap);
+
+  // 仅终点：走廊与端口边平行时，把平行长段退到净空外
+  const approachY = (box, side, py) => {
+    if (side === 's') return Math.max(py, box.y + box.h + clear);
+    if (side === 'n') return Math.min(py, box.y - clear);
+    return py;
+  };
+  const approachX = (box, side, px) => {
+    if (side === 'e') return Math.max(px, box.x + box.w + clear);
+    if (side === 'w') return Math.min(px, box.x - clear);
+    return px;
+  };
+
   if (via === 'above' || via === 'n') {
     const y = Math.min(boxA.y, boxB.y) - pad;
-    return [[x1, y1], [x1, y], [x2, y], [x2, y2]];
+    const bx = approachX(boxB, sb, x2);
+    return dedupePoints([[x1, y1], [x1, y], [bx, y], [bx, y2], [x2, y2]]);
   }
   if (via === 'below' || via === 's') {
     const y = Math.max(boxA.y + boxA.h, boxB.y + boxB.h) + pad;
-    return [[x1, y1], [x1, y], [x2, y], [x2, y2]];
+    const bx = approachX(boxB, sb, x2);
+    return dedupePoints([[x1, y1], [x1, y], [bx, y], [bx, y2], [x2, y2]]);
   }
   if (via === 'left' || via === 'w') {
     const x = Math.min(boxA.x, boxB.x) - pad;
-    return [[x1, y1], [x, y1], [x, y2], [x2, y2]];
+    const by = approachY(boxB, sb, y2);
+    return dedupePoints([[x1, y1], [x, y1], [x, by], [x2, by], [x2, y2]]);
   }
   const x = Math.max(boxA.x + boxA.w, boxB.x + boxB.w) + pad;
-  return [[x1, y1], [x, y1], [x, y2], [x2, y2]];
+  const by = approachY(boxB, sb, y2);
+  return dedupePoints([[x1, y1], [x, y1], [x, by], [x2, by], [x2, y2]]);
 }
 
 /* ------------------------------------------------------------------ 画布 */
@@ -817,21 +937,49 @@ export function createSketch(
           break;
         }
       }
+      const clearance = config.edgeClearance ?? DEFAULT_EDGE_CLEARANCE;
+      const portSlack = config.maxPortStub ?? MAX_PORT_STUB;
       for (const node of lintNodes) {
         if (node.kind !== 'node' && node.kind !== 'icon') continue;
-        if (node.id === edge.from || node.id === edge.to || edge.allowThrough.has(node.id)) continue;
+        if (edge.allowThrough.has(node.id)) continue;
+        const isFrom = node.id === edge.from;
+        const isTo = node.id === edge.to;
         let hit = null;
+        let grazed = false;
         for (let i = 0; i < edge.points.length - 1; i += 1) {
-          if (segmentHitsRect(edge.points[i], edge.points[i + 1], node.box)) {
-            hit = edge.points[i];
+          const a = edge.points[i];
+          const b = edge.points[i + 1];
+          if (isFrom || isTo) {
+            const port = isFrom ? edge.points[0] : edge.points[edge.points.length - 1];
+            // 起终点：端口邻域内允许贴近；沿边远距离擦框仍报
+            if (segmentHitsRectAwayFromPort(a, b, node.box, -clearance, port, portSlack)) {
+              hit = a;
+              grazed = true;
+              break;
+            }
+            // 仍禁止明显穿心
+            if (segmentHitsRect(a, b, node.box, 4)
+              && segmentHitsRectAwayFromPort(a, b, node.box, 4, port, portSlack)) {
+              hit = a;
+              break;
+            }
+            continue;
+          }
+          // 中间障碍：外扩净空，擦边即报
+          if (segmentHitsRect(a, b, node.box, -clearance)) {
+            hit = a;
+            grazed = true;
             break;
           }
         }
         if (hit) {
+          const throughIcon = node.kind === 'icon';
           add(
             'error',
-            node.kind === 'icon' ? 'EDGE_THROUGH_ICON' : 'EDGE_THROUGH_NODE',
-            `${edge.name} 穿过 ${node.name}`,
+            throughIcon ? 'EDGE_THROUGH_ICON' : 'EDGE_THROUGH_NODE',
+            grazed
+              ? `${edge.name} 与 ${node.name} 净空不足（贴边/擦线）`
+              : `${edge.name} 穿过 ${node.name}`,
             hit,
             [edge.id, node.id],
           );
@@ -1115,7 +1263,7 @@ export function createSketch(
      *   s.connect(a, 's', b, 'n', { dash: true, label: '回调', labelSize: 14 })
      */
     connect(boxA, sideA, boxB, sideB, o = {}) {
-      const gap = o.gap ?? 6;
+      const gap = o.gap ?? DEFAULT_PORT_GAP;
       const [x1, y1] = portOf(boxA, sideA, gap);
       const [x2, y2] = portOf(boxB, sideB, gap);
       const mode = o.mode ?? 'ortho';
@@ -1146,7 +1294,7 @@ export function createSketch(
         }
         return;
       } else {
-        pts = orthoRoute(x1, y1, sideA, x2, y2, sideB);
+        pts = orthoRoute(x1, y1, sideA, x2, y2, sideB, boxA, boxB);
       }
       trackEdge(pts, boxA, boxB, o);
       api.polyArrow(pts, { ...o, lint: false });
@@ -1165,13 +1313,18 @@ export function createSketch(
     /**
      * 外侧绕行：回流 / 跨层虚线走盒子外围通道，避免穿过中间卡片。
      * via: 'above' | 'below' | 'left' | 'right'
+     * 当走廊方向与端口边平行时，终点侧平行长段会退到 approach 净空，再以短 stub 垂直扎入；
+     * 起点不额外折弯，避免出发端口旁出现直觉外的小钩。
      *
      *   s.bypass(pay, 's', order, 's', { via: 'below', pad: 56, dash: true, label: '回调' })
+     *   // 左绕行进南端口：宜从西侧出发，s.bypass(a, 'w', b, 's', { via: 'left' })
      */
     bypass(boxA, sideA, boxB, sideB, o = {}) {
       const via = o.via ?? 'below';
       const pad = o.pad ?? 48;
-      const pts = bypassRoute(boxA, sideA, boxB, sideB, via, pad);
+      const gap = o.gap ?? DEFAULT_PORT_GAP;
+      const approach = o.approach ?? DEFAULT_BYPASS_APPROACH;
+      const pts = bypassRoute(boxA, sideA, boxB, sideB, via, pad, gap, approach);
       trackEdge(pts, boxA, boxB, o);
       api.polyArrow(pts, {
         roughness: 0.85, bowing: 0.7, passes: 1, sw: 1.55, ...o, lint: false,

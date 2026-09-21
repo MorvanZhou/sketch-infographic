@@ -12,12 +12,13 @@
  *
  * SVG 渲染无 npm 运行时依赖；只有加 --png 时才需要一台本机已装的 Chrome/Chromium/Edge/Brave
  * （直接调用浏览器自带的 --screenshot，不安装 puppeteer / playwright）。
+ * PNG 导出会使用临时 --user-data-dir，避免干扰日常浏览器会话。
  */
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { lintSvg } from './svg-lint.mjs';
 
@@ -112,10 +113,68 @@ function findChrome(explicit) {
   return null;
 }
 
+/** 结束 spawn 出的浏览器进程树（含 Helper） */
+function killProcessTree(pid) {
+  if (!pid) return;
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+    } else {
+      process.kill(-pid, 'SIGTERM');
+    }
+  } catch {
+    try { process.kill(pid, 'SIGKILL'); } catch { /* 已退出 */ }
+  }
+}
+
+/** 等 PNG 落盘且体积稳定；Chrome 在隔离 profile 下截图后常不退出 */
+function waitForPng(pngPath, child, timeoutMs = 60_000) {
+  const started = Date.now();
+  let lastSize = -1;
+  let stable = 0;
+  return new Promise((resolve, reject) => {
+    const timer = setInterval(() => {
+      if (Date.now() - started > timeoutMs) {
+        clearInterval(timer);
+        reject(new Error(`PNG 导出超时（${timeoutMs}ms）`));
+        return;
+      }
+      try {
+        if (!fs.existsSync(pngPath)) return;
+        const size = fs.statSync(pngPath).size;
+        if (size <= 0) return;
+        if (size === lastSize) {
+          stable += 1;
+          if (stable >= 2) {
+            clearInterval(timer);
+            resolve();
+          }
+        } else {
+          lastSize = size;
+          stable = 0;
+        }
+      } catch { /* 文件尚在写入 */ }
+    }, 100);
+    child.once('error', (err) => {
+      clearInterval(timer);
+      reject(err);
+    });
+  });
+}
+
 /** 用浏览器自带的 --screenshot 把 SVG 转成 PNG，无需任何 npm 包 */
-function svgToPng(chrome, svgPath, pngPath, width, height, scale, noSandbox = false) {
+async function svgToPng(chrome, svgPath, pngPath, width, height, scale, noSandbox = false) {
+  // 隔离临时 profile，避免与日常 Chrome 抢 SingletonLock / 触发“重新打开”提示。
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sketch-infographic-chrome-'));
+  try { if (fs.existsSync(pngPath)) fs.unlinkSync(pngPath); } catch { /* 忽略 */ }
   const args = [
-    '--headless',
+    '--headless=new',
+    `--user-data-dir=${userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-extensions',
+    '--disable-crash-reporter',
+    '--disable-background-networking',
     '--disable-gpu',
     '--hide-scrollbars',
     '--default-background-color=00000000',
@@ -126,9 +185,21 @@ function svgToPng(chrome, svgPath, pngPath, width, height, scale, noSandbox = fa
   ];
   // 默认不加 --no-sandbox；仅显式开关或 CHROME_NO_SANDBOX=1 时启用。
   if (noSandbox || process.env.CHROME_NO_SANDBOX === '1') {
-    args.splice(3, 0, '--no-sandbox');
+    args.splice(2, 0, '--no-sandbox');
   }
-  execFileSync(chrome, args, { stdio: 'pipe' });
+  const child = spawn(chrome, args, {
+    stdio: 'ignore',
+    // Unix 下建新进程组，便于一次杀掉 Helper 子进程。
+    detached: process.platform !== 'win32',
+  });
+  try {
+    await waitForPng(pngPath, child);
+  } finally {
+    killProcessTree(child.pid);
+    // 给进程一点时间释放 profile 文件锁，再删临时目录。
+    await new Promise((r) => setTimeout(r, 150));
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
 }
 
 /** 兼容数组与对象两种导出写法 */
@@ -227,7 +298,7 @@ async function main() {
     if (chrome) {
       const pngPath = assertInside(outDir, path.join(outDir, `${id}.png`), `图 ${id} 的 PNG 输出`);
       try {
-        svgToPng(
+        await svgToPng(
           chrome, svgPath, pngPath, sketch.width, sketch.height, args.scale, args.chromeNoSandbox,
         );
         console.log('✓', path.relative(process.cwd(), pngPath));

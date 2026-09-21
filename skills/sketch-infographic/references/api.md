@@ -127,12 +127,16 @@ s.bypass(order, 'n', mkt, 'n', {
 | `side` | `n/s/e/w` 或 `top/bottom/left/right` |
 | `mode` | 仅 `connect`：`ortho`（默认）/ `straight` / `curve` |
 | `via` | 仅 `bypass`：`above` / `below` / `left` / `right` |
-| `pad` | 绕行通道离节点的距离，默认 48 |
-| `gap` | 端口离边框的间隙，默认 6 |
+| `pad` | 绕行通道离节点外缘的距离，默认 48 |
+| `gap` | 端口离边框的间隙，默认 `DEFAULT_PORT_GAP`（6） |
+| `approach` | 仅 `bypass`：走廊与端口边平行时，平行长段的额外退让，默认 `DEFAULT_BYPASS_APPROACH`（16）；保证以短 stub 垂直扎入，避免贴底/顶横穿 |
 | `label` | 线旁短标签；按折线弧长几何中点落字（不是顶点下标中点） |
 | `lift` | 仅 `mode: 'curve'`：控制点上下偏移 |
 
 也可单独算端口：`portOf(box, 'e', 6)` → `[x, y]`。
+
+常量：`DEFAULT_PORT_GAP`、`DEFAULT_EDGE_CLEARANCE`（lint 净空，默认 10）、
+`DEFAULT_BYPASS_APPROACH`、`MAX_PORT_STUB`（起终点端口邻域，默认 32）。
 
 几何工具：
 
@@ -166,7 +170,7 @@ const issues = s.lint();
 |------|------|
 | `s.track(box, meta?)` | 登记独立节点或区域；区域用 `kind: 'region'` |
 | `s.trackRoute(points, meta?)` | 只登记已有线段，不重复绘制 |
-| `s.lint(config?)` | 返回 `{ severity, code, message, at, ids }[]` |
+| `s.lint(config?)` | 返回 `{ severity, code, message, at, ids }[]`；`edgeClearance` / `maxPortStub` 可调净空 |
 | `s.lintScene()` | 返回已登记的节点和边，供自定义工具读取 |
 | `id` / `from` / `to` | 给诊断稳定命名，并声明边的合法起终点 |
 | `allowThrough: ['node-id']` | 允许该边穿过指定节点 |
@@ -176,6 +180,8 @@ const issues = s.lint();
 错误码：`NODE_OVERLAP`、`ICON_OVERLAP`、`ICON_NODE_OVERLAP`、
 `EDGE_THROUGH_NODE`、`EDGE_THROUGH_ICON`、`EDGE_CROSS`、`EDGE_OVERLAP`、
 `NODE_OUT_OF_BOUNDS`、`EDGE_OUT_OF_BOUNDS`、`DUPLICATE_NODE_ID`。
+`EDGE_THROUGH_*` 会抓两类问题：线段穿入节点内部，以及相对节点外沿净空不足的贴边/擦线
+（起终点仅在端口邻域 `maxPortStub` 内允许贴近；沿边长段仍会报错）。
 线线交叉默认是 warning，其余结构错误为 error。
 
 图标：`lucideIcon` / `iconLabel` 会按中心与尺寸登记轴对齐包围盒。卡片内图标传
@@ -228,6 +234,8 @@ s.measure(content, size?)
 
 要点：
 
+- **字号分层**：用不同 `size` 区分主标题 / 分区标题 / 节点名 / 注解；连线标签用 `labelSize`。
+  不要整图默认 `18`。详见 `layout.md`「字号分层」。
 - `content` 支持 `\n` 手动换行，超宽会自动折行（中文按 1em、西文按 0.55em 估算）。
 - `measure(content, size)` 返回估算像素宽度。排卡片前先量一下就能避免自动缩字：
   卡片宽度建议 ≥ `measure(label, size) + 24`。
@@ -393,7 +401,7 @@ SVG 里的字体依赖打开者本机是否安装。若图要在不确定环境�
 | 能力 | 需要什么 |
 |------|---------|
 | 生成 SVG | 仅 Node ≥ 18，无任何 npm 依赖 |
-| 生成 PNG | 额外需要本机已装 Chrome / Chromium / Edge / Brave |
+| 生成 PNG | 额外需要本机已装 Chrome / Chromium / Edge / Brave；使用临时 `--user-data-dir`，不干扰日常浏览器会话 |
 | 自定义浏览器路径 | `--chrome <path>` 或环境变量 `CHROME_PATH` |
 
 脚本为 ESM（`.mjs`），可直接 `node` 运行，不需要 `package.json`，

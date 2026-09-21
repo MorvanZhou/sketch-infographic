@@ -74,7 +74,7 @@ function cnnStructure() {
   }
   s.track(input);
   s.text(input.x, input.y + input.h + 14, input.w, '输入 H×W×3', {
-    size: 14, align: 'center', color: BLUE, weight: 700,
+    size: 16, align: 'center', color: BLUE, weight: 700, fit: false,
   });
 
   // 卷积核窗口滑过输入
@@ -111,9 +111,13 @@ function cnnStructure() {
 
   // 主干箭头（弧长中点标签）
   s.connect(input, 'e', c1, 'w', { id: 'in-c1', stroke: GRAY });
-  s.connect(c1, 'e', p1, 'w', { id: 'c1-p1', stroke: VIOLET, label: '局部滤波' });
+  s.connect(c1, 'e', p1, 'w', {
+    id: 'c1-p1', stroke: VIOLET, label: '局部滤波', labelSize: 13,
+  });
   s.connect(p1, 'e', c2, 'w', { id: 'p1-c2', stroke: GRAY });
-  s.connect(c2, 'e', p2, 'w', { id: 'c2-p2', stroke: VIOLET, label: '组合' });
+  s.connect(c2, 'e', p2, 'w', {
+    id: 'c2-p2', stroke: VIOLET, label: '组合', labelSize: 13,
+  });
 
   // 核 → 第一层特征：示意「扫描生成」
   s.curve(
@@ -135,7 +139,7 @@ function cnnStructure() {
   }
   s.track(flat);
   s.text(flat.x - 20, flat.y + flat.h + 18, flat.w + 40, '展平', {
-    size: 13, align: 'center', color: INK,
+    size: 14, align: 'center', color: INK, weight: 700,
   });
   s.connect(p2, 'e', flat, 'w', { id: 'p2-flat', stroke: GRAY });
 
@@ -171,8 +175,12 @@ function cnnStructure() {
     });
   });
 
-  s.text(940, 470, 100, '隐层', { size: 13, align: 'center', color: GREEN, weight: 700 });
-  s.text(1100, 470, 100, '类别', { size: 13, align: 'center', color: RED, weight: 700 });
+  s.text(940, 470, 100, '隐层', {
+    size: 16, align: 'center', color: GREEN, weight: 700, fit: false,
+  });
+  s.text(1100, 470, 100, '类别', {
+    size: 16, align: 'center', color: RED, weight: 700, fit: false,
+  });
 
   // Softmax 示意：小柱
   const bars = R(1240, 280, 90, 140, 'bars');
@@ -187,7 +195,7 @@ function cnnStructure() {
     });
   });
   s.text(bars.x, bars.y + bars.h + 18, bars.w, 'Softmax', {
-    size: 13, align: 'center', color: RED, weight: 700,
+    size: 14, align: 'center', color: RED, weight: 700,
   });
   s.curve(
     out[1].x + out[1].w, out[1].y + out[1].h / 2,
@@ -212,7 +220,7 @@ function cnnStructure() {
       stroke: color, id: `icon-note-${i}`, parent: box.id,
     });
     s.text(box.x + 80, box.y + 22, box.w - 110, title, {
-      size: 17, weight: 700, color,
+      size: 18, weight: 700, color, fit: false,
     });
     s.text(box.x + 80, box.y + 50, box.w - 110, desc, {
       size: 14, color: INK,

@@ -19,7 +19,7 @@ function stageCard(s, box, title, bullets, icon, color) {
     stroke: color, id: `icon-${box.id}`, parent: box.id,
   });
   s.text(box.x + 48, box.y + 16, box.w - 60, title, {
-    size: 17, weight: 700, color,
+    size: 18, weight: 700, color, fit: false,
   });
   bullets.forEach((line, i) => {
     s.text(box.x + 16, box.y + 52 + i * 22, box.w - 28, `· ${line}`, {
@@ -46,20 +46,20 @@ function researchFramework() {
     [interpret, '③ 解释与边界', BLUE],
   ].forEach(([box, title, color]) => {
     s.box(box.x, box.y, box.w, box.h, { stroke: color, r: 14, sw: 1.5 });
-    s.text(box.x + 14, box.y + 10, 220, title, { size: 15, weight: 700, color });
+    s.text(box.x + 14, box.y + 10, 280, title, { size: 21, weight: 700, color, fit: false });
   });
 
-  const q = R(60, 185, 240, 140, 'question');
-  const lit = R(330, 185, 240, 140, 'literature');
-  const h = R(600, 185, 240, 140, 'hypothesis');
-  const designNote = R(870, 185, 240, 140, 'design');
-  const rival = R(1140, 185, 200, 140, 'rival');
+  const q = R(60, 200, 240, 140, 'question');
+  const lit = R(330, 200, 240, 140, 'literature');
+  const h = R(600, 200, 240, 140, 'hypothesis');
+  const designNote = R(870, 200, 240, 140, 'design');
+  const rival = R(1140, 200, 200, 140, 'rival');
 
-  const m = R(60, 430, 260, 140, 'method');
-  const data = R(360, 430, 260, 140, 'data');
-  const e = R(660, 430, 250, 140, 'evidence');
+  const m = R(60, 440, 260, 140, 'method');
+  const data = R(360, 440, 260, 140, 'data');
+  const e = R(660, 440, 250, 140, 'evidence');
 
-  const validity = R(1000, 430, 330, 140, 'validity');
+  const validity = R(1000, 440, 330, 140, 'validity');
 
   assertNoOverlap([
     ['问题', q], ['文献', lit], ['假设', h], ['设计', designNote], ['竞争', rival],
@@ -82,13 +82,19 @@ function researchFramework() {
   s.connect(q, 'e', lit, 'w', { id: 'q-lit', stroke: GRAY });
   s.connect(lit, 'e', h, 'w', { id: 'lit-h', stroke: GRAY });
   s.connect(h, 'e', designNote, 'w', { id: 'h-design', stroke: GRAY });
-  s.connect(designNote, 'e', rival, 'w', { id: 'design-rival', stroke: RED, dash: true, label: '对抗' });
+  s.connect(designNote, 'e', rival, 'w', {
+    id: 'design-rival', stroke: RED, dash: true, label: '对抗', labelSize: 13,
+  });
 
   // 设计 → 执行
-  s.connect(h, 's', m, 'n', { id: 'h-m', stroke: VIOLET, label: '可操作化' });
+  s.connect(h, 's', m, 'n', {
+    id: 'h-m', stroke: VIOLET, label: '可操作化', labelSize: 13,
+  });
   s.connect(m, 'e', data, 'w', { id: 'm-data', stroke: GREEN });
   s.connect(data, 'e', e, 'w', { id: 'data-e', stroke: GREEN });
-  s.connect(e, 'e', validity, 'w', { id: 'e-val', stroke: BLUE, label: '质询' });
+  s.connect(e, 'e', validity, 'w', {
+    id: 'e-val', stroke: BLUE, label: '质询', labelSize: 13,
+  });
 
   // 结论三栏
   const concl = R(60, 640, 1120, 150, 'conclusion');
@@ -96,8 +102,8 @@ function researchFramework() {
     stroke: VIOLET, fill: YELLOW, fillStyle: 'hachure', hachureGap: 16, sw: 2.2, r: 14,
   });
   s.track(concl);
-  s.text(concl.x + 20, concl.y + 14, 400, '结论：拆成三句话写清楚', {
-    size: 18, weight: 700, color: VIOLET,
+  s.text(concl.x + 20, concl.y + 14, 480, '结论：拆成三句话写清楚', {
+    size: 21, weight: 700, color: VIOLET, fit: false,
   });
 
   const c1 = R(90, 690, 320, 70, 'c-support');
@@ -109,18 +115,23 @@ function researchFramework() {
     [c3, '下一步', '新问题、新设计、开放数据', BLUE],
   ].forEach(([box, title, body, color]) => {
     s.box(box.x, box.y, box.w, box.h, { stroke: color, r: 10, sw: 1.6 });
-    s.text(box.x + 12, box.y + 10, box.w - 24, title, { size: 15, weight: 700, color });
+    s.text(box.x + 12, box.y + 10, box.w - 24, title, {
+      size: 17, weight: 700, color, fit: false,
+    });
     s.text(box.x + 12, box.y + 36, box.w - 24, body, { size: 13, color: INK });
   });
 
-  s.connect(e, 's', concl, 'n', { id: 'e-concl', stroke: VIOLET, label: '综合解释' });
+  s.connect(e, 's', concl, 'n', {
+    id: 'e-concl', stroke: VIOLET, label: '综合解释', labelSize: 13,
+  });
   s.connect(validity, 's', concl, 'e', {
     id: 'val-concl', stroke: BLUE, dash: true, allowOverlap: true,
   });
 
   // 反馈：结论 → 问题
   s.bypass(concl, 'w', q, 'w', {
-    id: 'feedback', via: 'left', pad: 28, dash: true, stroke: RED, label: '修正问题',
+    id: 'feedback', via: 'left', pad: 28, dash: true, stroke: RED,
+    label: '修正问题', labelSize: 13,
   });
 
   // 侧注
@@ -169,17 +180,17 @@ function photosynthesisLesson() {
     stroke: YELLOW, id: 'icon-pigment', parent: pigment.id,
   });
   s.text(pigment.x + 56, pigment.y + 16, pigment.w - 68, '色素天线', {
-    size: 15, weight: 700, color: INK,
+    size: 17, weight: 700, color: INK, fit: false,
   });
   s.text(pigment.x + 14, pigment.y + 48, pigment.w - 28, '叶绿素 a/b · 蓝紫/红光', {
-    size: 12, color: INK,
+    size: 13, color: INK,
   });
 
   s.lucideIcon('sun', sun.x + 30, sun.y + sun.h / 2, 28, {
     stroke: YELLOW, id: 'icon-sun', parent: sun.id,
   });
   s.card(sun.x, sun.y, sun.w, sun.h, '光能（光子）', {
-    stroke: YELLOW, color: INK, size: 18, weight: 700,
+    stroke: YELLOW, color: INK, size: 18, weight: 700, fit: false,
   });
 
   // 叶片只作角落标识，不再铺满过程区
@@ -196,18 +207,20 @@ function photosynthesisLesson() {
     lint: false,
   });
   s.text(leafBadge.x, leafBadge.y + leafBadge.h - 2, leafBadge.w, '叶绿体', {
-    size: 13, align: 'center', color: GREEN, weight: 700,
+    size: 14, align: 'center', color: GREEN, weight: 700,
   });
 
   s.connect(pigment, 'e', sun, 'w', { id: 'pigment-sun', stroke: YELLOW, dash: true });
-  s.connect(sun, 'e', leafBadge, 'w', { id: 'sun-leaf', stroke: YELLOW, label: '捕光' });
+  s.connect(sun, 'e', leafBadge, 'w', {
+    id: 'sun-leaf', stroke: YELLOW, label: '捕光', labelSize: 13,
+  });
 
   // —— 过程区：宽敞三栏，叶片不压文字 ——
   const chloro = R(40, 280, 1020, 380, { id: 'chloro', kind: 'region' });
   s.track(chloro);
   s.box(chloro.x, chloro.y, chloro.w, chloro.h, { stroke: GREEN, r: 16, sw: 1.6 });
-  s.text(chloro.x + 20, chloro.y + 14, 360, '叶绿体内：光反应 → 能量载体 → 卡尔文循环', {
-    size: 16, weight: 700, color: GREEN,
+  s.text(chloro.x + 20, chloro.y + 14, 520, '叶绿体内：光反应 → 能量载体 → 卡尔文循环', {
+    size: 20, weight: 700, color: GREEN, fit: false,
   });
 
   const water = R(60, 340, 150, 100, 'water');
@@ -227,25 +240,29 @@ function photosynthesisLesson() {
     stroke: BLUE, id: 'icon-water', parent: water.id,
   });
   s.text(water.x + 52, water.y + 16, water.w - 64, '水 H₂O', {
-    size: 15, weight: 700, color: BLUE,
+    size: 17, weight: 700, color: BLUE, fit: false,
   });
   s.text(water.x + 12, water.y + 48, water.w - 24, '光解：e⁻/H⁺/O₂', {
-    size: 12, color: INK,
+    size: 13, color: INK,
   });
 
   s.box(lightRx.x, lightRx.y, lightRx.w, lightRx.h, {
     stroke: YELLOW, r: 12, sw: 1.9, fill: YELLOW, fillStyle: 'solid', fillOpacity: 0.1,
   });
   s.text(lightRx.x + 14, lightRx.y + 16, lightRx.w - 28, '光反应（类囊体膜）', {
-    size: 16, weight: 700, color: INK,
+    size: 18, weight: 700, color: INK, fit: false,
   });
   s.text(lightRx.x + 14, lightRx.y + 52, lightRx.w - 28,
     '· 光系统 II / I\n· 电子传递链\n· 水的光解\n· 合成 ATP / NADPH', {
       size: 13, color: INK, lh: 1.55,
     });
 
-  s.card(atp.x, atp.y, atp.w, atp.h, 'ATP', { stroke: RED, size: 17, weight: 700 });
-  s.card(nadph.x, nadph.y, nadph.w, nadph.h, 'NADPH', { stroke: VIOLET, size: 16, weight: 700 });
+  s.card(atp.x, atp.y, atp.w, atp.h, 'ATP', {
+    stroke: RED, size: 18, weight: 700, fit: false,
+  });
+  s.card(nadph.x, nadph.y, nadph.w, nadph.h, 'NADPH', {
+    stroke: VIOLET, size: 17, weight: 700, fit: false,
+  });
   s.text(atp.x - 8, atp.y - 22, atp.w + 16, '能量载体', {
     size: 13, align: 'center', color: GRAY, weight: 700,
   });
@@ -254,7 +271,7 @@ function photosynthesisLesson() {
     stroke: GREEN, r: 12, sw: 1.9, fill: GREEN, fillStyle: 'solid', fillOpacity: 0.08,
   });
   s.text(darkRx.x + 14, darkRx.y + 16, darkRx.w - 28, '卡尔文循环（基质）', {
-    size: 16, weight: 700, color: GREEN,
+    size: 18, weight: 700, color: GREEN, fit: false,
   });
   s.text(darkRx.x + 14, darkRx.y + 52, darkRx.w - 28,
     '· 不直接需要光照\n· Rubisco 固碳\n· 还原 → 糖\n· RuBP 再生', {
@@ -266,17 +283,25 @@ function photosynthesisLesson() {
     stroke: BLUE, id: 'icon-co2', parent: co2.id,
   });
   s.text(co2.x + 8, co2.y + 48, co2.w - 16, 'CO₂\n气孔进入', {
-    size: 13, align: 'center', color: BLUE, weight: 700,
+    size: 14, align: 'center', color: BLUE, weight: 700,
   });
 
-  s.connect(sun, 's', lightRx, 'n', { id: 'sun-light', stroke: YELLOW, label: '激发电子' });
-  s.connect(water, 'e', lightRx, 'w', { id: 'water-light', stroke: BLUE, label: '光解' });
-  s.connect(co2, 'w', darkRx, 'e', { id: 'co2-dark', stroke: BLUE, label: '固碳' });
+  s.connect(sun, 's', lightRx, 'n', {
+    id: 'sun-light', stroke: YELLOW, label: '激发电子', labelSize: 13,
+  });
+  s.connect(water, 'e', lightRx, 'w', {
+    id: 'water-light', stroke: BLUE, label: '光解', labelSize: 13,
+  });
+  s.connect(co2, 'w', darkRx, 'e', {
+    id: 'co2-dark', stroke: BLUE, label: '固碳', labelSize: 13,
+  });
   s.connect(lightRx, 'e', atp, 'w', { id: 'light-atp', stroke: RED });
   s.connect(lightRx, 'e', nadph, 'w', {
     id: 'light-nadph', stroke: VIOLET, allowOverlap: true,
   });
-  s.connect(atp, 'e', darkRx, 'w', { id: 'atp-dark', stroke: RED, dash: true, label: '供能' });
+  s.connect(atp, 'e', darkRx, 'w', {
+    id: 'atp-dark', stroke: RED, dash: true, label: '供能', labelSize: 13,
+  });
   s.connect(nadph, 'e', darkRx, 'w', {
     id: 'nadph-dark', stroke: VIOLET, dash: true, allowOverlap: true,
   });
@@ -291,7 +316,7 @@ function photosynthesisLesson() {
     stroke: GREEN, id: 'icon-o2', parent: oxygen.id,
   });
   s.text(oxygen.x + 66, oxygen.y + 18, oxygen.w - 80, '氧气 O₂', {
-    size: 17, weight: 700, color: GREEN,
+    size: 18, weight: 700, color: GREEN, fit: false,
   });
   s.text(oxygen.x + 66, oxygen.y + 48, oxygen.w - 80, '水光解副产物 · 气孔释放', {
     size: 13, color: INK,
@@ -302,14 +327,18 @@ function photosynthesisLesson() {
     stroke: VIOLET, id: 'icon-sugar', parent: sugar.id,
   });
   s.text(sugar.x + 66, sugar.y + 18, sugar.w - 80, '糖 / 淀粉', {
-    size: 17, weight: 700, color: VIOLET,
+    size: 18, weight: 700, color: VIOLET, fit: false,
   });
   s.text(sugar.x + 66, sugar.y + 48, sugar.w - 80, 'G3P → 葡萄糖 · 可转运或储存', {
     size: 13, color: INK,
   });
 
-  s.connect(lightRx, 's', oxygen, 'n', { id: 'light-o2', stroke: GREEN, label: '释放 O₂' });
-  s.connect(darkRx, 's', sugar, 'n', { id: 'dark-sugar', stroke: VIOLET, label: '碳骨架' });
+  s.connect(lightRx, 's', oxygen, 'n', {
+    id: 'light-o2', stroke: GREEN, label: '释放 O₂', labelSize: 13,
+  });
+  s.connect(darkRx, 's', sugar, 'n', {
+    id: 'dark-sugar', stroke: VIOLET, label: '碳骨架', labelSize: 13,
+  });
 
   // —— 总反应与条件 ——
   const eqn = R(80, 890, 940, 90, 'eqn');
@@ -318,7 +347,7 @@ function photosynthesisLesson() {
   });
   s.inBox(eqn.x, eqn.y, eqn.w, eqn.h,
     '6 CO₂ + 6 H₂O  +  光能  →  C₆H₁₂O₆ + 6 O₂', {
-      size: 22, weight: 700, color: INK,
+      size: 22, weight: 700, color: INK, fit: false,
     });
 
   const cond = [
@@ -333,7 +362,7 @@ function photosynthesisLesson() {
       stroke: color, id: `icon-cond-${i}`, parent: box.id,
     });
     s.text(box.x + 58, box.y + 18, box.w - 72, title, {
-      size: 15, weight: 700, color,
+      size: 18, weight: 700, color, fit: false,
     });
     s.text(box.x + 16, box.y + 56, box.w - 32, body, {
       size: 13, color: INK,
@@ -376,23 +405,27 @@ function policyStakeholders() {
     s.lucideIcon(icon, box.x + 28, box.y + box.h / 2, 26, {
       stroke: color, id: `icon-${box.id}`, parent: box.id,
     });
-    s.card(box.x, box.y, box.w, box.h, label, { stroke: color, size: 17, weight: 700 });
+    s.card(box.x, box.y, box.w, box.h, label, {
+      stroke: color, size: 17, weight: 700, fit: false,
+    });
   });
 
   s.connect(gov, 's', supply, 'n', {
-    id: 'gov-supply', stroke: RED, label: '强制标准', allowOverlap: true,
+    id: 'gov-supply', stroke: RED, label: '强制标准', labelSize: 13, allowOverlap: true,
   });
   s.connect(gov, 'w', shop, 'n', { id: 'gov-shop', stroke: RED, allowOverlap: true });
   s.connect(gov, 'e', user, 'n', { id: 'gov-user', stroke: RED, allowOverlap: true });
-  s.connect(supply, 'w', shop, 'e', { id: 'supply-shop', stroke: VIOLET, label: '供货' });
+  s.connect(supply, 'w', shop, 'e', {
+    id: 'supply-shop', stroke: VIOLET, label: '供货', labelSize: 13,
+  });
   s.bypass(shop, 'n', user, 'n', {
-    id: 'shop-user', via: 'above', pad: 72, stroke: BLUE, label: '价格信号',
+    id: 'shop-user', via: 'above', pad: 72, stroke: BLUE, label: '价格信号', labelSize: 13,
     allowCrossing: true, allowOverlap: true,
   });
   s.connect(user, 's', env, 'e', { id: 'user-env', stroke: GREEN });
   s.connect(shop, 's', env, 'w', { id: 'shop-env', stroke: GREEN });
   s.connect(supply, 's', env, 'n', {
-    id: 'supply-env', dash: true, stroke: GRAY, label: '材料足迹',
+    id: 'supply-env', dash: true, stroke: GRAY, label: '材料足迹', labelSize: 13,
   });
 
   return s;
@@ -416,16 +449,18 @@ function serviceTopology() {
   const notify = R(760, 390, 150, 70, 'notify');
   s.track(domain);
 
-  s.card(client.x, client.y, client.w, client.h, '客户端', { stroke: GREEN, size: 17 });
+  s.card(client.x, client.y, client.w, client.h, '客户端', {
+    stroke: GREEN, size: 17, weight: 700, fit: false,
+  });
   s.box(gateway.x, gateway.y, gateway.w, gateway.h, {
     stroke: BLUE, fill: YELLOW, fillStyle: 'dots', hachureGap: 10,
   });
   s.inBox(gateway.x, gateway.y, gateway.w, gateway.h, '网关', {
-    size: 20, weight: 700, color: BLUE,
+    size: 20, weight: 700, color: BLUE, fit: false,
   });
   s.box(domain.x, domain.y, domain.w, domain.h, { stroke: VIOLET, r: 16, sw: 2 });
   s.text(domain.x, domain.y + 14, domain.w, '业务域', {
-    size: 18, align: 'center', color: VIOLET, weight: 700,
+    size: 21, align: 'center', color: VIOLET, weight: 700, fit: false,
   });
 
   [
@@ -434,7 +469,9 @@ function serviceTopology() {
     [stock, '库存', INK],
     [notify, '通知', GREEN],
   ].forEach(([box, label, color]) => {
-    s.card(box.x, box.y, box.w, box.h, label, { stroke: color, size: 18, weight: 700 });
+    s.card(box.x, box.y, box.w, box.h, label, {
+      stroke: color, size: 18, weight: 700, fit: false,
+    });
   });
 
   s.connect(client, 'e', gateway, 'w', { id: 'client-gw', stroke: GRAY });
@@ -443,7 +480,8 @@ function serviceTopology() {
   s.connect(order, 's', stock, 'n', { id: 'order-stock', stroke: INK });
   s.connect(pay, 's', notify, 'n', { id: 'pay-notify', stroke: INK });
   s.bypass(order, 'n', notify, 'e', {
-    id: 'pay-event', via: 'above', pad: 34, dash: true, stroke: RED, label: '领域事件总线',
+    id: 'pay-event', via: 'above', pad: 34, dash: true, stroke: RED,
+    label: '领域事件总线', labelSize: 13,
   });
 
   return s;
@@ -466,10 +504,10 @@ function approachCompare() {
   s.box(left.x, left.y, left.w, left.h, { stroke: RED, r: 16 });
   s.box(right.x, right.y, right.w, right.h, { stroke: GREEN, r: 16 });
   s.text(left.x, left.y + 20, left.w, '旧路径：人工串联', {
-    size: 22, align: 'center', color: RED, weight: 700,
+    size: 22, align: 'center', color: RED, weight: 700, fit: false,
   });
   s.text(right.x, right.y + 20, right.w, '新路径：自动编排', {
-    size: 22, align: 'center', color: GREEN, weight: 700,
+    size: 22, align: 'center', color: GREEN, weight: 700, fit: false,
   });
 
   const leftItems = [
@@ -484,12 +522,12 @@ function approachCompare() {
   ];
   ['多人交接', '状态靠聊天同步', '出错后难追溯'].forEach((label, i) => {
     s.card(leftItems[i].x, leftItems[i].y, leftItems[i].w, leftItems[i].h, label, {
-      stroke: RED, size: 17,
+      stroke: RED, size: 17, fit: false,
     });
   });
   ['单一编排入口', '状态可观测', '失败可回放'].forEach((label, i) => {
     s.card(rightItems[i].x, rightItems[i].y, rightItems[i].w, rightItems[i].h, label, {
-      stroke: GREEN, size: 17,
+      stroke: GREEN, size: 17, fit: false,
     });
   });
 
@@ -524,15 +562,17 @@ function onboardingJourney() {
 
   steps.forEach(({ box, title, mood, color, icon }) => {
     s.line(box.x + 65, 300, box.x + 65, 320, { stroke: color, sw: 1.4 });
-    s.card(box.x, box.y, box.w, box.h, title, { stroke: color, size: 16, weight: 700 });
+    s.card(box.x, box.y, box.w, box.h, title, {
+      stroke: color, size: 17, weight: 700, fit: false,
+    });
     s.lucideIcon(icon, box.x + 65, 190, 28, { stroke: color });
-    s.wireLabel(box.x, 340, 130, mood, { size: 15, align: 'center', color });
+    s.wireLabel(box.x, 340, 130, mood, { size: 13, align: 'center', color });
   });
 
   const risk = R(560, 430, 280, 80, 'risk');
   s.bubble(risk.x, risk.y, risk.w, risk.h, { stroke: RED });
   s.text(risk.x + 12, risk.y + 22, risk.w - 24, '第 3 天提醒过密\n是主要流失风险', {
-    size: 16, align: 'center', color: RED, weight: 700,
+    size: 15, align: 'center', color: RED, weight: 700,
   });
   s.connect(steps[3].box, 's', risk, 'n', {
     id: 'risk-callout', stroke: RED, dash: true,
@@ -566,25 +606,27 @@ function platformArchitecture() {
     [obs, '可观测性', GREEN],
   ].forEach(([box, title, color]) => {
     s.box(box.x, box.y, box.w, box.h, { stroke: color, r: 14, sw: 1.8 });
-    s.text(box.x + 12, box.y + 8, box.w - 24, title, { size: 16, weight: 700, color });
+    s.text(box.x + 12, box.y + 10, box.w - 24, title, {
+      size: 21, weight: 700, color, fit: false,
+    });
   });
 
   // 5 列管道：同列纵向、邻列横向，避免穿节点
-  const web = R(70, 200, 240, 55, 'web');
-  const mobile = R(70, 290, 240, 55, 'mobile');
+  const web = R(70, 210, 240, 55, 'web');
+  const mobile = R(70, 295, 240, 55, 'mobile');
   const partner = R(70, 380, 240, 55, 'partner');
   const gw = R(70, 480, 240, 55, 'gateway');
 
-  const bff = R(400, 200, 200, 55, 'bff');
-  const identity = R(640, 200, 200, 55, 'identity');
-  const checkout = R(400, 290, 200, 55, 'checkout');
-  const billing = R(640, 290, 200, 55, 'billing');
+  const bff = R(400, 210, 200, 55, 'bff');
+  const identity = R(640, 210, 200, 55, 'identity');
+  const checkout = R(400, 295, 200, 55, 'checkout');
+  const billing = R(640, 295, 200, 55, 'billing');
   const risk = R(400, 380, 200, 55, 'risk');
   const catalog = R(640, 380, 200, 55, 'catalog');
   const workflow = R(400, 480, 440, 55, 'workflow');
 
-  const kafka = R(960, 200, 360, 55, 'kafka');
-  const redis = R(960, 290, 360, 55, 'redis');
+  const kafka = R(960, 210, 360, 55, 'kafka');
+  const redis = R(960, 295, 360, 55, 'redis');
   const oltp = R(960, 380, 360, 55, 'oltp');
   const lake = R(960, 480, 360, 55, 'lake');
 
@@ -632,16 +674,22 @@ function platformArchitecture() {
     s.lucideIcon(icon, box.x + 22, box.y + box.h / 2, 20, {
       stroke: color, id: `icon-${box.id}`, parent: box.id,
     });
-    s.card(box.x, box.y, box.w, box.h, label, { stroke: color, size: 15, weight: 700 });
+    s.card(box.x, box.y, box.w, box.h, label, {
+      stroke: color, size: 16, weight: 700, fit: false,
+    });
   });
 
   // 边缘列：纵向汇入网关
   s.connect(web, 's', mobile, 'n', { id: 'web-mobile', stroke: GRAY });
   s.connect(mobile, 's', partner, 'n', { id: 'mobile-partner', stroke: GRAY });
-  s.connect(partner, 's', gw, 'n', { id: 'partner-gw', stroke: BLUE, label: '汇入' });
+  s.connect(partner, 's', gw, 'n', {
+    id: 'partner-gw', stroke: BLUE, label: '汇入', labelSize: 13,
+  });
 
   // 边缘 → 业务：网关到 BFF / 编排（同列对齐）
-  s.connect(gw, 'e', workflow, 'w', { id: 'gw-flow', stroke: BLUE, label: '入口' });
+  s.connect(gw, 'e', workflow, 'w', {
+    id: 'gw-flow', stroke: BLUE, label: '入口', labelSize: 13,
+  });
 
   // 业务域网格（只连邻居）
   s.connect(bff, 'e', identity, 'w', { id: 'bff-id', stroke: VIOLET });
@@ -657,10 +705,18 @@ function platformArchitecture() {
   });
 
   // 业务 → 数据（同行邻接）
-  s.connect(identity, 'e', kafka, 'w', { id: 'id-kafka', stroke: GRAY, label: '认证事件' });
-  s.connect(billing, 'e', redis, 'w', { id: 'billing-redis', stroke: GRAY, label: '缓存' });
-  s.connect(catalog, 'e', oltp, 'w', { id: 'catalog-oltp', stroke: GRAY, label: '读写' });
-  s.connect(workflow, 'e', lake, 'w', { id: 'flow-lake', stroke: INK, dash: true, label: '编排落库' });
+  s.connect(identity, 'e', kafka, 'w', {
+    id: 'id-kafka', stroke: GRAY, label: '认证事件', labelSize: 13,
+  });
+  s.connect(billing, 'e', redis, 'w', {
+    id: 'billing-redis', stroke: GRAY, label: '缓存', labelSize: 13,
+  });
+  s.connect(catalog, 'e', oltp, 'w', {
+    id: 'catalog-oltp', stroke: GRAY, label: '读写', labelSize: 13,
+  });
+  s.connect(workflow, 'e', lake, 'w', {
+    id: 'flow-lake', stroke: INK, dash: true, label: '编排落库', labelSize: 13,
+  });
 
   // 数据列纵向
   s.connect(kafka, 's', redis, 'n', { id: 'kafka-redis', stroke: GRAY, dash: true });
@@ -672,9 +728,19 @@ function platformArchitecture() {
   s.connect(secrets, 'e', config, 'w', { id: 'secrets-config', stroke: RED });
   s.connect(deploy, 's', secrets, 'n', { id: 'deploy-secrets', stroke: RED, dash: true });
   s.connect(policy, 's', config, 'n', { id: 'policy-config', stroke: RED, dash: true });
-  s.bypass(policy, 'n', gw, 's', {
-    id: 'policy-gw', via: 'left', pad: 28, dash: true, stroke: RED, label: '配额 / 开关',
-  });
+  // 控制面 → 网关：走边缘区与控制面之间的夹缝，避免左绕大弯
+  {
+    const [x1, y1] = [policy.x + policy.w / 2, policy.y - 6];
+    const [x2, y2] = [gw.x + gw.w / 2, gw.y + gw.h + 6];
+    const laneY = 588; // edge 底 575 与 control 顶 610 之间
+    const pts = [[x1, y1], [x1, laneY], [x2, laneY], [x2, y2]];
+    s.polyArrow(pts, {
+      id: 'policy-gw', from: policy, to: gw, dash: true, stroke: RED,
+    });
+    s.wireLabel(x2 - 20, laneY - 22, 140, '配额 / 开关', {
+      size: 13, align: 'center', color: RED,
+    });
+  }
 
   // 可观测性：与上方列对齐的短连接 + 底行串联
   s.connect(workflow, 's', logs, 'n', { id: 'flow-logs', stroke: GREEN, dash: true });
