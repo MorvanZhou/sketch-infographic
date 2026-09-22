@@ -7,7 +7,7 @@
 
 import {
   createSketch, R, assertNoOverlap,
-  INK, RED, BLUE, GREEN, VIOLET, GRAY, YELLOW,
+  INK, RED, BLUE, GREEN, VIOLET, GRAY, YELLOW, PAPER,
 } from './sketch.mjs';
 import { FIGURES as CNN_FIGURES } from './cnn-figures.mjs';
 
@@ -147,234 +147,263 @@ function researchFramework() {
   return s;
 }
 
-/* ------------------------------------------ 2. 教学概念图（竖版，高密度） */
+/* ------------------------------------------ 2. 教学形态图（叶片当主体） */
 
-/** 叶绿体示意：直立叶片轮廓 + 叶脉（viewBox 100×140，非 Lucide） */
-const CHLOROPLAST_LEAF = [
-  ['path', {
-    d: 'M50 6 C72 18 88 40 92 68 C96 96 84 118 50 134 C16 118 4 96 8 68 C12 40 28 18 50 6 Z',
-  }],
-  ['path', { d: 'M50 22 L50 120' }],
-  ['path', { d: 'M50 48 Q68 52 78 42' }],
-  ['path', { d: 'M50 48 Q32 52 22 42' }],
-  ['path', { d: 'M50 72 Q70 78 82 66' }],
-  ['path', { d: 'M50 72 Q30 78 18 66' }],
-  ['path', { d: 'M50 96 Q66 102 74 92' }],
-  ['path', { d: 'M50 96 Q34 102 26 92' }],
-];
+/**
+ * 形态当主体时的标准做法：先写一个几何函数，叶形、叶脉、气孔、叶绿体
+ * 的位置全部从它推导，而不是手写一堆贝塞尔控制点。
+ * 改叶子胖瘦只要动 LEAF_A / LEAF_B，内部构件会跟着走，不会戳出轮廓。
+ */
+const LEAF = { cx: 620, tipY: 196, len: 476, maxHalf: 206 };
+const LEAF_A = 1.15; // 越大叶尖越尖
+const LEAF_B = 1.0;  // 越大叶基越尖
+
+const leafRaw = (t) => (t <= 0 || t >= 1 ? 0 : t ** LEAF_A * (1 - t) ** LEAF_B);
+const LEAF_PEAK = (() => {
+  let m = 0;
+  for (let i = 0; i <= 400; i += 1) m = Math.max(m, leafRaw(i / 400));
+  return m;
+})();
+
+/** t=0 叶尖、t=1 叶基 */
+const leafY = (t) => LEAF.tipY + t * LEAF.len;
+/** 该高度的半宽 */
+const leafHalf = (t) => (LEAF.maxHalf * leafRaw(t)) / LEAF_PEAK;
+/** 叶缘上的点 */
+const leafEdge = (t, side) => [LEAF.cx + side * leafHalf(t), leafY(t)];
+/** 叶肉内的点：按该高度半宽的比例取，保证落在叶片里 */
+const leafInner = (t, frac) => [LEAF.cx + frac * leafHalf(t), leafY(t)];
+
+/** 采样点连成平滑 path，省得手写控制点 */
+function smoothPath(pts, close = false) {
+  const f = (n) => n.toFixed(1);
+  let d = `M ${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let i = 1; i < pts.length - 1; i += 1) {
+    const [x, y] = pts[i];
+    const [nx, ny] = pts[i + 1];
+    d += ` Q ${f(x)} ${f(y)}, ${f((x + nx) / 2)} ${f((y + ny) / 2)}`;
+  }
+  const last = pts[pts.length - 1];
+  d += ` L ${f(last[0])} ${f(last[1])}`;
+  return close ? `${d} Z` : d;
+}
+
+const PETIOLE = { t: 0.955, y2: 766, half: 31 };
+
+function drawLeafBody(s) {
+  const steps = 30;
+  const right = [];
+  const left = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    right.push(leafEdge(t, 1));
+    left.push(leafEdge(t, -1));
+  }
+  s.path(smoothPath([...right, ...left.reverse()], true), {
+    stroke: GREEN, sw: 2.4, roughness: 0.8,
+    fill: GREEN, fillStyle: 'solid', fillOpacity: 0.09,
+  });
+
+  s.path(`M ${LEAF.cx} ${LEAF.tipY + 20} Q ${LEAF.cx + 5} ${leafY(0.55)}, ${LEAF.cx} ${leafY(0.985)}`, {
+    stroke: GREEN, sw: 2, roughness: 0.9,
+  });
+
+  // 侧脉朝叶尖斜出去。终点半宽按「终点那个高度」算，收窄处才不会戳出叶缘
+  for (const t of [0.24, 0.4, 0.56, 0.72, 0.87]) {
+    const rise = 34;
+    const endT = Math.max(t - rise / LEAF.len, 0.02);
+    const reach = Math.min(leafHalf(t), leafHalf(endT)) * 0.8;
+    for (const side of [1, -1]) {
+      s.path(
+        `M ${LEAF.cx} ${leafY(t)}`
+        + ` Q ${LEAF.cx + side * reach * 0.55} ${leafY(t) - rise * 0.3},`
+        + ` ${LEAF.cx + side * reach} ${leafY(endT)}`,
+        { stroke: GREEN, sw: 1.2, roughness: 0.95 },
+      );
+    }
+  }
+
+  // 叶柄：接在叶基，宽度和该处叶宽对上
+  for (const side of [1, -1]) {
+    s.line(
+      LEAF.cx + side * PETIOLE.half, leafY(PETIOLE.t),
+      LEAF.cx + side * PETIOLE.half * 0.8, PETIOLE.y2,
+      { stroke: GREEN, sw: 2.1, roughness: 0.8 },
+    );
+  }
+}
+
+/** 气孔：两片保卫细胞夹出梭形，中间是真正的孔 */
+function drawStoma(s, t, side, color) {
+  const [ix, iy] = leafInner(t, side * 0.84);
+  const w = 52;
+  const h = 15;
+  for (const s2 of [1, -1]) {
+    s.path(`M ${ix - w / 2} ${iy} Q ${ix} ${iy + s2 * h * 2}, ${ix + w / 2} ${iy}`, {
+      stroke: color, sw: 2, roughness: 0.7,
+      fill: color, fillStyle: 'solid', fillOpacity: 0.12,
+    });
+  }
+  s.ellipse(ix, iy, 22, 9, {
+    stroke: color, sw: 1.4, roughness: 0.65,
+    fill: color, fillStyle: 'solid', fillOpacity: 0.55,
+  });
+  return [ix, iy];
+}
+
+/** 叶绿体：外膜 + 基粒叠层，层数和间距都按 scale 算 */
+function drawChloroplast(s, cx, cy, scale, detailed = false) {
+  const w = 236 * scale;
+  const h = 146 * scale;
+
+  // 先盖掉底下的叶脉，补回叶肉底色，再画外膜
+  s.ellipse(cx, cy, w, h, {
+    stroke: PAPER, sw: 1, roughness: 0.6,
+    fill: PAPER, fillStyle: 'solid', fillOpacity: 1,
+  });
+  s.ellipse(cx, cy, w, h, {
+    stroke: PAPER, sw: 1, roughness: 0.6,
+    fill: GREEN, fillStyle: 'solid', fillOpacity: 0.09,
+  });
+  s.ellipse(cx, cy, w, h, {
+    stroke: GREEN, sw: 2.1 * Math.max(scale, 0.6), roughness: 0.85,
+  });
+
+  const stacks = detailed ? 3 : 2;
+  const layers = detailed ? 4 : 3;
+  for (let g = 0; g < stacks; g += 1) {
+    const gx = cx + (g - (stacks - 1) / 2) * 72 * scale;
+    for (let i = 0; i < layers; i += 1) {
+      s.ellipse(
+        gx, cy - (layers - 1) * 7.5 * scale + i * 15 * scale,
+        48 * scale, 11.5 * scale,
+        {
+          stroke: GREEN, sw: 1.3 * Math.max(scale, 0.55), roughness: 0.75,
+          fill: GREEN, fillStyle: 'solid', fillOpacity: 0.26,
+        },
+      );
+    }
+    if (detailed && g < stacks - 1) {
+      s.path(
+        `M ${gx + 23 * scale} ${cy + 28 * scale}`
+        + ` Q ${gx + 36 * scale} ${cy + 41 * scale}, ${gx + 49 * scale} ${cy + 28 * scale}`,
+        { stroke: GREEN, sw: 1.1, roughness: 0.85 },
+      );
+    }
+  }
+}
 
 function photosynthesisLesson() {
-  const s = createSketch({ width: 1100, height: 1320 });
+  const s = createSketch(1320, 820, { stroke: { roughness: 1 } });
   s.header({
-    title: '光合作用：把光能变成可储存的化学能',
-    sub: '输入 · 场所分舱 · 能量载体 · 产物 · 总反应式',
+    title: '光合作用：叶子把光能变成糖',
+    sub: '光落在叶面，气体走气孔，水和糖在同一条叶脉里反向走',
   });
 
-  // —— 顶栏输入（不与叶体重叠）——
-  const pigment = R(60, 145, 220, 90, 'pigment');
-  const sun = R(440, 145, 220, 70, 'sun');
-  const leafBadge = R(900, 130, 140, 110, 'leaf-badge');
+  drawLeafBody(s);
 
-  s.box(pigment.x, pigment.y, pigment.w, pigment.h, { stroke: YELLOW, r: 10, sw: 1.6 });
-  s.lucideIcon('palette', pigment.x + 28, pigment.y + 28, 24, {
-    stroke: YELLOW, id: 'icon-pigment', parent: pigment.id,
-  });
-  s.text(pigment.x + 56, pigment.y + 16, pigment.w - 68, '色素天线', {
-    size: 17, weight: 700, color: INK, fit: false,
-  });
-  s.text(pigment.x + 14, pigment.y + 48, pigment.w - 28, '叶绿素 a/b · 蓝紫/红光', {
-    size: 13, color: INK,
-  });
+  // 叶肉里到处是叶绿体，中间这颗放大到能看见基粒
+  drawChloroplast(s, ...leafInner(0.5, 0), 1, true);
+  drawChloroplast(s, ...leafInner(0.22, -0.46), 0.3);
+  drawChloroplast(s, ...leafInner(0.28, 0.5), 0.24);
+  drawChloroplast(s, ...leafInner(0.78, -0.5), 0.27);
+  drawChloroplast(s, ...leafInner(0.85, 0.42), 0.21);
 
-  s.lucideIcon('sun', sun.x + 30, sun.y + sun.h / 2, 28, {
-    stroke: YELLOW, id: 'icon-sun', parent: sun.id,
+  // —— 左上：光 ——
+  const sun = R(92, 190, 140, 140, 'sun');
+  s.circle(162, 260, 86, {
+    stroke: YELLOW, sw: 2.8, fill: YELLOW, fillStyle: 'solid', fillOpacity: 0.55,
   });
-  s.card(sun.x, sun.y, sun.w, sun.h, '光能（光子）', {
-    stroke: YELLOW, color: INK, size: 18, weight: 700, fit: false,
-  });
+  for (let i = 0; i < 8; i += 1) {
+    const a = (i * 45 * Math.PI) / 180;
+    s.line(
+      162 + Math.cos(a) * 53, 260 + Math.sin(a) * 53,
+      162 + Math.cos(a) * 68, 260 + Math.sin(a) * 68,
+      { stroke: YELLOW, sw: 2.3 },
+    );
+  }
+  s.track(sun);
 
-  // 叶片只作角落标识，不再铺满过程区
-  s.track(leafBadge);
-  s.svgGlyph(leafBadge.x + leafBadge.w / 2, leafBadge.y + leafBadge.h / 2, 100, CHLOROPLAST_LEAF, {
-    viewBox: [0, 0, 100, 140],
-    stroke: GREEN,
-    fill: YELLOW,
-    fillStyle: 'dots',
-    hachureGap: 10,
-    sw: 1.8,
-    id: 'glyph-leaf',
-    parent: 'leaf-badge',
-    lint: false,
+  const sunTxt = R(66, 348, 196, 58, 'sun-txt');
+  s.text(sunTxt.x, sunTxt.y, sunTxt.w, '光能', { size: 20, weight: 700, align: 'center' });
+  s.text(sunTxt.x, sunTxt.y + 29, sunTxt.w, '叶绿素负责接住', {
+    size: 14, color: GRAY, align: 'center',
   });
-  s.text(leafBadge.x, leafBadge.y + leafBadge.h - 2, leafBadge.w, '叶绿体', {
-    size: 14, align: 'center', color: GREEN, weight: 700,
+  s.track(sunTxt);
+
+  // 三束光斜打在叶面左上，箭头停在叶缘上
+  [0.22, 0.34, 0.47].forEach((t, i) => {
+    const [ex, ey] = leafEdge(t, -1);
+    s.arrow(248, 222 + i * 44, ex - 5, ey - 4, { stroke: YELLOW, sw: 2.5, head: 13 });
   });
 
-  s.connect(pigment, 'e', sun, 'w', { id: 'pigment-sun', stroke: YELLOW, dash: true });
-  s.connect(sun, 'e', leafBadge, 'w', {
-    id: 'sun-leaf', stroke: YELLOW, label: '捕光', labelSize: 13,
+  // —— 左下：二氧化碳进气孔 ——
+  const [inX, inY] = drawStoma(s, 0.66, -1, BLUE);
+  s.wireLabel(inX - 176, inY + 24, 140, '气孔', { size: 13, color: GRAY, align: 'right' });
+
+  const co2 = R(62, 486, 224, 62, 'co2');
+  s.text(co2.x, co2.y, co2.w, '二氧化碳 CO₂', { size: 19, weight: 700, color: BLUE });
+  s.text(co2.x, co2.y + 29, co2.w, '从气孔进来', { size: 14, color: GRAY });
+  s.track(co2);
+  s.arrow(296, 512, inX - 36, inY - 2, { stroke: BLUE, sw: 2.5, head: 13 });
+  s.trackRoute([[296, 512], [inX - 36, inY - 2]], { id: 'co2-in', from: co2 });
+
+  // —— 右下：氧气出气孔 ——
+  const [outX, outY] = drawStoma(s, 0.6, 1, VIOLET);
+
+  const oxygen = R(952, 476, 252, 62, 'oxygen');
+  s.text(oxygen.x, oxygen.y, oxygen.w, '氧气 O₂', { size: 19, weight: 700, color: VIOLET });
+  s.text(oxygen.x, oxygen.y + 29, oxygen.w, '水被拆开时放出来', { size: 14, color: GRAY });
+  s.track(oxygen);
+  s.arrow(outX + 36, outY - 2, 942, 496, { stroke: VIOLET, sw: 2.5, head: 13 });
+  s.trackRoute([[outX + 36, outY - 2], [942, 496]], { id: 'o2-out', to: oxygen });
+
+  // —— 右中：叶绿体注解 ——
+  const chl = R(952, 306, 284, 88, 'chl');
+  s.text(chl.x, chl.y, chl.w, '叶绿体', { size: 19, weight: 700, color: GREEN });
+  s.text(chl.x, chl.y + 29, chl.w, '一叠一叠的基粒，\n光反应就在这些膜上', {
+    size: 14, color: GRAY,
+  });
+  s.track(chl);
+  s.path(`M 942 342 Q 872 348, ${LEAF.cx + 126} ${leafY(0.5) - 36}`, {
+    stroke: GRAY, sw: 1.4, dash: '5 5', roughness: 0.7,
   });
 
-  // —— 过程区：宽敞三栏，叶片不压文字 ——
-  const chloro = R(40, 280, 1020, 380, { id: 'chloro', kind: 'region' });
-  s.track(chloro);
-  s.box(chloro.x, chloro.y, chloro.w, chloro.h, { stroke: GREEN, r: 16, sw: 1.6 });
-  s.text(chloro.x + 20, chloro.y + 14, 520, '叶绿体内：光反应 → 能量载体 → 卡尔文循环', {
-    size: 20, weight: 700, color: GREEN, fit: false,
+  // —— 右上：总反应式 ——
+  const eqn = R(952, 160, 284, 92, 'eqn');
+  s.box(eqn.x, eqn.y, eqn.w, eqn.h, { stroke: INK, sw: 1.6, r: 10, roughness: 0.8 });
+  s.text(eqn.x + 14, eqn.y + 20, eqn.w - 28, '6 CO₂ + 6 H₂O + 光能', { size: 16, align: 'center' });
+  s.text(eqn.x + 14, eqn.y + 48, eqn.w - 28, '→ C₆H₁₂O₆ + 6 O₂', { size: 16, align: 'center' });
+  s.track(eqn);
+
+  // —— 底：同一条叶脉，水上行、糖下行 ——
+  s.arrow(LEAF.cx - 16, PETIOLE.y2 - 12, LEAF.cx - 16, leafY(PETIOLE.t) - 40, {
+    stroke: BLUE, sw: 2.8, head: 13,
+  });
+  s.arrow(LEAF.cx + 16, leafY(PETIOLE.t) - 40, LEAF.cx + 16, PETIOLE.y2 - 12, {
+    stroke: VIOLET, sw: 2.8, head: 13,
   });
 
-  const water = R(60, 340, 150, 100, 'water');
-  const lightRx = R(240, 330, 220, 200, 'light-rx');
-  const atp = R(500, 350, 120, 70, 'atp');
-  const nadph = R(500, 450, 120, 70, 'nadph');
-  const darkRx = R(660, 330, 220, 200, 'dark-rx');
-  const co2 = R(910, 380, 130, 100, 'co2');
+  const water = R(300, 690, 268, 62, 'water');
+  s.text(water.x, water.y, water.w, '水 H₂O 往上走', {
+    size: 19, weight: 700, color: BLUE, align: 'right',
+  });
+  s.text(water.x, water.y + 29, water.w, '根吸的水沿木质部上来', {
+    size: 14, color: GRAY, align: 'right',
+  });
+  s.track(water);
+  s.arrow(578, 716, LEAF.cx - PETIOLE.half - 12, 722, { stroke: BLUE, sw: 1.8, head: 10 });
+
+  const sugar = R(676, 690, 276, 62, 'sugar');
+  s.text(sugar.x, sugar.y, sugar.w, '糖往下走', { size: 19, weight: 700, color: VIOLET });
+  s.text(sugar.x, sugar.y + 29, sugar.w, '沿韧皮部送去别的器官', { size: 14, color: GRAY });
+  s.track(sugar);
+  s.arrow(666, 716, LEAF.cx + PETIOLE.half + 12, 722, { stroke: VIOLET, sw: 1.8, head: 10 });
 
   assertNoOverlap([
-    ['水', water], ['光反应', lightRx], ['ATP', atp],
-    ['NADPH', nadph], ['暗反应', darkRx], ['二氧化碳', co2],
+    ['太阳', sun], ['光能', sunTxt], ['二氧化碳', co2], ['氧气', oxygen],
+    ['叶绿体', chl], ['总反应式', eqn], ['水', water], ['糖', sugar],
   ], 16);
-
-  s.box(water.x, water.y, water.w, water.h, { stroke: BLUE, r: 10, sw: 1.8 });
-  s.lucideIcon('droplets', water.x + 26, water.y + 28, 22, {
-    stroke: BLUE, id: 'icon-water', parent: water.id,
-  });
-  s.text(water.x + 52, water.y + 16, water.w - 64, '水 H₂O', {
-    size: 17, weight: 700, color: BLUE, fit: false,
-  });
-  s.text(water.x + 12, water.y + 48, water.w - 24, '光解：e⁻/H⁺/O₂', {
-    size: 13, color: INK,
-  });
-
-  s.box(lightRx.x, lightRx.y, lightRx.w, lightRx.h, {
-    stroke: YELLOW, r: 12, sw: 1.9, fill: YELLOW, fillStyle: 'solid', fillOpacity: 0.1,
-  });
-  s.text(lightRx.x + 14, lightRx.y + 16, lightRx.w - 28, '光反应（类囊体膜）', {
-    size: 18, weight: 700, color: INK, fit: false,
-  });
-  s.text(lightRx.x + 14, lightRx.y + 52, lightRx.w - 28,
-    '· 光系统 II / I\n· 电子传递链\n· 水的光解\n· 合成 ATP / NADPH', {
-      size: 13, color: INK, lh: 1.55,
-    });
-
-  s.card(atp.x, atp.y, atp.w, atp.h, 'ATP', {
-    stroke: RED, size: 18, weight: 700, fit: false,
-  });
-  s.card(nadph.x, nadph.y, nadph.w, nadph.h, 'NADPH', {
-    stroke: VIOLET, size: 17, weight: 700, fit: false,
-  });
-  s.text(atp.x - 8, atp.y - 22, atp.w + 16, '能量载体', {
-    size: 13, align: 'center', color: GRAY, weight: 700,
-  });
-
-  s.box(darkRx.x, darkRx.y, darkRx.w, darkRx.h, {
-    stroke: GREEN, r: 12, sw: 1.9, fill: GREEN, fillStyle: 'solid', fillOpacity: 0.08,
-  });
-  s.text(darkRx.x + 14, darkRx.y + 16, darkRx.w - 28, '卡尔文循环（基质）', {
-    size: 18, weight: 700, color: GREEN, fit: false,
-  });
-  s.text(darkRx.x + 14, darkRx.y + 52, darkRx.w - 28,
-    '· 不直接需要光照\n· Rubisco 固碳\n· 还原 → 糖\n· RuBP 再生', {
-      size: 13, color: INK, lh: 1.55,
-    });
-
-  s.box(co2.x, co2.y, co2.w, co2.h, { stroke: BLUE, r: 10, sw: 1.8 });
-  s.lucideIcon('wind', co2.x + co2.w / 2, co2.y + 28, 22, {
-    stroke: BLUE, id: 'icon-co2', parent: co2.id,
-  });
-  s.text(co2.x + 8, co2.y + 48, co2.w - 16, 'CO₂\n气孔进入', {
-    size: 14, align: 'center', color: BLUE, weight: 700,
-  });
-
-  s.connect(sun, 's', lightRx, 'n', {
-    id: 'sun-light', stroke: YELLOW, label: '激发电子', labelSize: 13,
-  });
-  s.connect(water, 'e', lightRx, 'w', {
-    id: 'water-light', stroke: BLUE, label: '光解', labelSize: 13,
-  });
-  s.connect(co2, 'w', darkRx, 'e', {
-    id: 'co2-dark', stroke: BLUE, label: '固碳', labelSize: 13,
-  });
-  s.connect(lightRx, 'e', atp, 'w', { id: 'light-atp', stroke: RED });
-  s.connect(lightRx, 'e', nadph, 'w', {
-    id: 'light-nadph', stroke: VIOLET, allowOverlap: true,
-  });
-  s.connect(atp, 'e', darkRx, 'w', {
-    id: 'atp-dark', stroke: RED, dash: true, label: '供能', labelSize: 13,
-  });
-  s.connect(nadph, 'e', darkRx, 'w', {
-    id: 'nadph-dark', stroke: VIOLET, dash: true, allowOverlap: true,
-  });
-
-  // —— 产物（与过程区拉开）——
-  const oxygen = R(200, 720, 280, 100, 'oxygen');
-  const sugar = R(620, 720, 300, 100, 'sugar');
-  assertNoOverlap([['氧气', oxygen], ['糖', sugar]], 40);
-
-  s.box(oxygen.x, oxygen.y, oxygen.w, oxygen.h, { stroke: GREEN, r: 12, sw: 2 });
-  s.lucideIcon('wind', oxygen.x + 30, oxygen.y + 36, 26, {
-    stroke: GREEN, id: 'icon-o2', parent: oxygen.id,
-  });
-  s.text(oxygen.x + 66, oxygen.y + 18, oxygen.w - 80, '氧气 O₂', {
-    size: 18, weight: 700, color: GREEN, fit: false,
-  });
-  s.text(oxygen.x + 66, oxygen.y + 48, oxygen.w - 80, '水光解副产物 · 气孔释放', {
-    size: 13, color: INK,
-  });
-
-  s.box(sugar.x, sugar.y, sugar.w, sugar.h, { stroke: VIOLET, r: 12, sw: 2 });
-  s.lucideIcon('candy', sugar.x + 30, sugar.y + 36, 26, {
-    stroke: VIOLET, id: 'icon-sugar', parent: sugar.id,
-  });
-  s.text(sugar.x + 66, sugar.y + 18, sugar.w - 80, '糖 / 淀粉', {
-    size: 18, weight: 700, color: VIOLET, fit: false,
-  });
-  s.text(sugar.x + 66, sugar.y + 48, sugar.w - 80, 'G3P → 葡萄糖 · 可转运或储存', {
-    size: 13, color: INK,
-  });
-
-  s.connect(lightRx, 's', oxygen, 'n', {
-    id: 'light-o2', stroke: GREEN, label: '释放 O₂', labelSize: 13,
-  });
-  s.connect(darkRx, 's', sugar, 'n', {
-    id: 'dark-sugar', stroke: VIOLET, label: '碳骨架', labelSize: 13,
-  });
-
-  // —— 总反应与条件 ——
-  const eqn = R(80, 890, 940, 90, 'eqn');
-  s.box(eqn.x, eqn.y, eqn.w, eqn.h, {
-    stroke: INK, r: 12, sw: 1.8, fill: YELLOW, fillStyle: 'hachure', hachureGap: 18,
-  });
-  s.inBox(eqn.x, eqn.y, eqn.w, eqn.h,
-    '6 CO₂ + 6 H₂O  +  光能  →  C₆H₁₂O₆ + 6 O₂', {
-      size: 22, weight: 700, color: INK, fit: false,
-    });
-
-  const cond = [
-    [80, '必需条件', '光照 · 色素 · 酶\n适宜温度与水分', 'thermometer-sun', YELLOW],
-    [400, '限制因素', '光强 / CO₂ / 温度\n常成木桶短板', 'gauge', RED],
-    [720, '与呼吸对比', '光合吸 CO₂ 放 O₂\n线粒体反向氧化', 'repeat-2', BLUE],
-  ];
-  cond.forEach(([x, title, body, icon, color], i) => {
-    const box = R(x, 1030, 280, 120, `cond-${i}`);
-    s.box(box.x, box.y, box.w, box.h, { stroke: color, r: 12, sw: 1.6 });
-    s.lucideIcon(icon, box.x + 28, box.y + 32, 24, {
-      stroke: color, id: `icon-cond-${i}`, parent: box.id,
-    });
-    s.text(box.x + 58, box.y + 18, box.w - 72, title, {
-      size: 18, weight: 700, color, fit: false,
-    });
-    s.text(box.x + 16, box.y + 56, box.w - 32, body, {
-      size: 13, color: INK,
-    });
-  });
-
-  const steps = R(80, 1200, 940, 70, 'steps');
-  s.box(steps.x, steps.y, steps.w, steps.h, { stroke: GRAY, r: 10, sw: 1.3 });
-  s.text(steps.x + 20, steps.y + 22, steps.w - 40,
-    '阅读顺序：色素捕光 → 光反应造 ATP/NADPH 与 O₂ → 暗反应固碳成糖 → 对照总式与限制因素', {
-      size: 14, color: INK,
-    });
 
   return s;
 }

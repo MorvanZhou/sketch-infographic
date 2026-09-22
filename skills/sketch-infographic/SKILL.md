@@ -189,6 +189,7 @@ export const FIGURES = [['overview', overview], ['morph', morph]];
    - 圆点列 → 神经元 / 样本；
    - 扇形或柱高 → 概率或得分；
    - `path` / `svgGlyph` → 领域轮廓（叶、细胞、外壳），不要为此加行业专用 API。
+   - 轮廓本身就是画面主体时，按下面「先写几何函数」那一节做，不要手写控制点。
 3. **装饰与结构分离**：内部网格、示意剖面线、小核窗口等设 `lint: false`；外轮廓用 `R` +
    `track`（或 `connect` 的端点）登记，保证重叠/穿线仍可查。
 4. **故意重叠要声明**：滑窗叠在输入图上时，对内层 `track(..., { allowOverlap: true })`。
@@ -199,6 +200,71 @@ export const FIGURES = [['overview', overview], ['morph', morph]];
 7. **标注短而靠边**：名称放在形态下方或外侧，不要把长句塞进每个小形状中心。
 
 复杂形态图同样必须 `--lint-strict` 并通过肉眼检查；手绘抖动不是重叠的借口。
+
+#### 形态当主体：先写几何函数，再推导内部构件
+
+当画面主体是一个自由轮廓（叶片、细胞、器官、装置剖面、地层、地形），**不要手写贝塞尔
+控制点去凑形状**，也不要把内部构件的坐标一个个写死。按三步来：
+
+1. **用参数化函数描述轮廓**：沿主轴取归一化参数 `t`，写出该处的半宽（或半径、厚度）。
+2. **轮廓由采样点平滑连成**，不手写控制点。
+3. **所有内部构件都从这个函数推导**：细胞器、通道、开口、附着点、标注落点，一律用
+   「该高度的宽度 × 比例」定位，而不是各写一个绝对坐标。
+
+```js
+// 1. 轮廓：t^A * (1-t)^B，两端自然收尖；A、B 控制哪头更尖
+const A = 1.15;
+const B = 1.0;
+const raw = (t) => (t <= 0 || t >= 1 ? 0 : t ** A * (1 - t) ** B);
+const PEAK = (() => { let m = 0; for (let i = 0; i <= 400; i += 1) m = Math.max(m, raw(i / 400)); return m; })();
+
+const yAt = (t) => TIP_Y + t * LEN;
+const halfAt = (t) => (MAX_HALF * raw(t)) / PEAK;   // 该高度的半宽
+const edge = (t, side) => [CX + side * halfAt(t), yAt(t)];
+const inner = (t, frac) => [CX + frac * halfAt(t), yAt(t)]; // 主体内的点，必然在轮廓里
+
+// 2. 采样 + 平滑成 path
+const right = []; const left = [];
+for (let i = 0; i <= 30; i += 1) {
+  const t = i / 30;
+  right.push(edge(t, 1)); left.push(edge(t, -1));
+}
+s.path(smoothPath([...right, ...left.reverse()], true), { stroke: GREEN, sw: 2.4, roughness: 0.8 });
+
+// 3. 内部构件按比例落位，改 A/B 时会自动跟着走
+drawOrganelle(s, ...inner(0.5, 0), 1);      // 主轴上
+drawOpening(s, ...inner(0.66, -0.84));       // 贴近左缘
+```
+
+`smoothPath` 把采样点两两取中点做二次贝塞尔，几行即可：
+
+```js
+function smoothPath(pts, close = false) {
+  const f = (n) => n.toFixed(1);
+  let d = `M ${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let i = 1; i < pts.length - 1; i += 1) {
+    const [x, y] = pts[i]; const [nx, ny] = pts[i + 1];
+    d += ` Q ${f(x)} ${f(y)}, ${f((x + nx) / 2)} ${f((y + ny) / 2)}`;
+  }
+  const last = pts[pts.length - 1];
+  d += ` L ${f(last[0])} ${f(last[1])}`;
+  return close ? `${d} Z` : d;
+}
+```
+
+这样做的收益是**改一个参数，整张形态和所有内部构件一起变**：叶子要更瘦就调 `A`，
+要更大就调 `MAX_HALF`，不必重排任何一个器官或标注。
+
+三个必须避开的坑：
+
+| 坑 | 后果 | 修法 |
+|----|------|------|
+| 手写控制点凑轮廓 | 形状不可控，改一处要重调一串数字 | 换成参数化半宽函数 |
+| 用**起点**处的宽度算构件终点 | 在轮廓收窄处戳出边界（叶脉穿出叶缘） | 用**终点**那个位置的宽度，跨度大时取 `Math.min(halfAt(t0), halfAt(t1))` |
+| 底层纹理透过内部器官 | 器官上叠着主脉/网格，看不清 | 先 `PAPER` 不透明填充盖一层，再补回底色，最后画外膜 |
+
+**lint 管不到这一层。** 轮廓和装饰通常设 `lint: false`，所以形状画歪、器官戳出边界时
+lint 照样全绿。参数化形态图必须真的看图；发现不对优先改函数参数，而不是去挪单个坐标。
 
 ### 6. 使用通用视觉资产
 
